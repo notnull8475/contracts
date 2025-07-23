@@ -1,0 +1,5 @@
+ALTER TABLE public.user_roles DROP CONSTRAINT IF EXISTS user_id CASCADE;
+ALTER TABLE public.user_roles DROP CONSTRAINT IF EXISTS app_role_id CASCADE;
+DROP TABLE IF EXISTS public.user_roles CASCADE;
+DROP TABLE IF EXISTS public.app_role CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
