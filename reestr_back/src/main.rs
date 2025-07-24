@@ -3,10 +3,9 @@ mod handlers;
 mod middleware;
 mod models;
 mod schema;
-mod utils;
 mod services;
+mod utils;
 
-use crate::auth::secure::login_user;
 // use simple_logger::SimpleLogger;
 use crate::utils::create_admin_user::create_admin_user_if_need;
 use actix_cors::Cors;
@@ -55,61 +54,59 @@ async fn main() -> std::io::Result<()> {
             .allow_any_header()
             .expose_any_header()
             .max_age(36000);
-        /*
-        API description
-        guest
-         - registration of person
-        admin
-         - add person
-         - add specification of person
-         - del person
-         - del specification
-         - list of persons
-        person
-         - login
-         - logout
-         - get table of it specifications
-        */
         App::new()
             .wrap(session_middleware())
             .wrap(cors)
             .wrap(actix_web::middleware::Logger::default()) // Встроенный логгер Actix
-            .service(login_user)
-            // GUEST ROLE
-            .route(
-                "/api/v1/registration",
-                web::post().to(auth::secure::register_user),
-            )
-            // .route("/api/v1/login", web::post().to(services::secure::login_user))
-            .route(
-                "/api/v1/add/user",
-                web::post().to(handlers::users::add_user),
-            )
-            .route("/api/v1/add/role", web::post()) //TODO
-            .route(
-                "/api/v1/update/user",
-                web::post().to(handlers::users::update_user),
-            )
-            .route(
-                "/api/v1/admin/user/update",
-                web::post().to(handlers::users::update_user),
-            )
-            .route("/api/v1/update/role", web::post()) //TODO
-            .route(
-                "/api/v1/get/roles",
-                web::get().to(handlers::users::get_roles),
-            )
-            .route(
-                "/api/v1/get/users",
-                web::get().to(handlers::users::get_users),
-            )
-            // DELETE
-            .route(
-                "/api/v1/admin/user/delete/{user_id}",
-                web::delete().to(handlers::users::del_user),
+            .service(
+                web::scope("/api/v1")
+                    .route("/registration", web::post().to(auth::secure::register_user))
+            .route("/login", web::post().to(auth::secure::login_user))
+            .route("/roles/get", web::get().to(handlers::users::get_roles))
+            .service(
+                web::scope("/admin")
+                    .service(
+                        web::scope("/users")
+                            .route("/update", web::post().to(handlers::users::update_user))
+                            .route("/add", web::post().to(handlers::users::add_user))
+                            .route("/delete/{user_id}",web::delete().to(handlers::users::del_user))
+                            .route("/get/list", web::get().to(handlers::users::get_users)),
+                    )
+                )
+                .service(
+                    web::scope("/types/validity")
+                        .route("/add",web::post().to(handlers::type_of_validity_handler::add_type_req))
+                        .route("/del/{type_id}",web::delete().to(handlers::type_of_validity_handler::del_type_req))
+                        .route("/list",web::get().to(handlers::type_of_validity_handler::types_list))
+                        .route("/get/{type_id}",web::get().to(handlers::type_of_validity_handler::get_type_req))
+                 )
+                .service(
+                    web::scope("/contracts")
+                        .route("/add", web::post().to(handlers::contracts_handler::add_contract_req))
+                        .route("/update", web::post().to(handlers::contracts_handler::update_contract_req))
+                        .route("/del/{id}", web::delete().to(handlers::contracts_handler::add_contract_req))
+                        .route("/list", web::get().to(handlers::contracts_handler::add_contract_req))
+                        .route("/get/{id}", web::get().to(handlers::contracts_handler::add_contract_req)),
+                )
+                .service(
+                    web::scope("/organizations")
+                        .route("/add", web::post().to(handlers::organizations_handler::add_organization_req))
+                        .route("/update", web::post().to(handlers::organizations_handler::update_organization_req))
+                        .route("/del/{id}", web::delete().to(handlers::organizations_handler::add_organization_req))
+                        .route("/list", web::get().to(handlers::organizations_handler::add_organization_req))
+                        .route("/get/{id}", web::get().to(handlers::organizations_handler::add_organization_req)),
+                )
+                .service(
+                    web::scope("/responsible_person")
+                        .route("/add", web::post().to(handlers::responsible_person_handler::add_responsible_person_req))
+                        .route("/update", web::post().to(handlers::responsible_person_handler::update_responsible_person_req))
+                        .route("/del/{id}", web::delete().to(handlers::responsible_person_handler::add_responsible_person_req))
+                        .route("/list", web::get().to(handlers::responsible_person_handler::add_responsible_person_req))
+                        .route("/get/{id}", web::get().to(handlers::responsible_person_handler::add_responsible_person_req)),
+                )
             )
     })
-    .bind("0.0.0.0:8080")?
-    .run()
-    .await
+        .bind("0.0.0.0:8080")?
+        .run()
+        .await
 }

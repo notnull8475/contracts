@@ -1,4 +1,4 @@
-pub mod contracts;
-pub mod organizations;
+pub mod contract;
+pub mod organization;
 pub mod responsible_person;
 pub mod type_of_validity;

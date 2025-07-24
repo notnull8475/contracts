@@ -33,7 +33,7 @@ pub async fn register_user(user_data: web::Json<NewUserDTO>) -> impl Responder {
 }
 
 // Авторизация
-#[actix_web::post("/api/v1/login")]
+// #[actix_web::post("/api/v1/login")]
 pub async fn login_user(login_data: web::Json<LoginRequest>) -> impl Responder {
     let conn = &mut establish_connection();
 

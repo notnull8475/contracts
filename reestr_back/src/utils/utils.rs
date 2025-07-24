@@ -1,3 +1,4 @@
+use actix_web::{Error, HttpResponse};
 use rand::Rng;
 
 pub fn generate_random_string(length: usize) -> String {
@@ -13,4 +14,11 @@ pub fn generate_random_string(length: usize) -> String {
             CHARSET[idx] as char
         })
         .collect()
+}
+
+pub fn response_fn<T: serde::Serialize>(resp: Result<T, String>) -> Result<HttpResponse, Error> {
+    match resp {
+        Ok(data) => Ok(HttpResponse::Ok().json(data)),
+        Err(err) => Ok(HttpResponse::Unauthorized().body(err)),
+    }
 }
