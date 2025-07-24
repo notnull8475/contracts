@@ -84,25 +84,25 @@ async fn main() -> std::io::Result<()> {
                     web::scope("/contracts")
                         .route("/add", web::post().to(handlers::contracts_handler::add_contract_req))
                         .route("/update", web::post().to(handlers::contracts_handler::update_contract_req))
-                        .route("/del/{id}", web::delete().to(handlers::contracts_handler::add_contract_req))
-                        .route("/list", web::get().to(handlers::contracts_handler::add_contract_req))
-                        .route("/get/{id}", web::get().to(handlers::contracts_handler::add_contract_req)),
+                        .route("/del/{id}", web::delete().to(handlers::contracts_handler::del_contract_req))
+                        .route("/list", web::get().to(handlers::contracts_handler::list_contract_req))
+                        .route("/get/{id}", web::get().to(handlers::contracts_handler::get_contract_req)),
                 )
                 .service(
                     web::scope("/organizations")
                         .route("/add", web::post().to(handlers::organizations_handler::add_organization_req))
                         .route("/update", web::post().to(handlers::organizations_handler::update_organization_req))
-                        .route("/del/{id}", web::delete().to(handlers::organizations_handler::add_organization_req))
-                        .route("/list", web::get().to(handlers::organizations_handler::add_organization_req))
-                        .route("/get/{id}", web::get().to(handlers::organizations_handler::add_organization_req)),
+                        .route("/del/{id}", web::delete().to(handlers::organizations_handler::del_organization_req))
+                        .route("/list", web::get().to(handlers::organizations_handler::list_organization_req))
+                        .route("/get/{id}", web::get().to(handlers::organizations_handler::get_organization_req)),
                 )
                 .service(
                     web::scope("/responsible_person")
                         .route("/add", web::post().to(handlers::responsible_person_handler::add_responsible_person_req))
                         .route("/update", web::post().to(handlers::responsible_person_handler::update_responsible_person_req))
-                        .route("/del/{id}", web::delete().to(handlers::responsible_person_handler::add_responsible_person_req))
-                        .route("/list", web::get().to(handlers::responsible_person_handler::add_responsible_person_req))
-                        .route("/get/{id}", web::get().to(handlers::responsible_person_handler::add_responsible_person_req)),
+                        .route("/del/{id}", web::delete().to(handlers::responsible_person_handler::del_responsible_person_req))
+                        .route("/list", web::get().to(handlers::responsible_person_handler::list_responsible_person_req))
+                        .route("/get/{id}", web::get().to(handlers::responsible_person_handler::get_responsible_person_req)),
                 )
             )
     })

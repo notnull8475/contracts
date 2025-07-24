@@ -38,7 +38,7 @@ pub async fn update_organization_req(
     response_fn(resp)
 }
 
-pub async fn organizations_list(req: HttpRequest) -> Result<HttpResponse, Error> {
+pub async fn list_organization_req(req: HttpRequest) -> Result<HttpResponse, Error> {
     if let Err(response) = auth::verify_and_extract_claims(&req) {
         return Ok(response);
     }

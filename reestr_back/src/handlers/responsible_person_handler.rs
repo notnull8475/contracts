@@ -41,7 +41,7 @@ pub async fn update_responsible_person_req(
     response_fn(resp)
 }
 
-pub async fn responsible_persons_list(req: HttpRequest) -> Result<HttpResponse, Error> {
+pub async fn list_responsible_person_req(req: HttpRequest) -> Result<HttpResponse, Error> {
     if let Err(response) = auth::verify_and_extract_claims(&req) {
         return Ok(response);
     }
