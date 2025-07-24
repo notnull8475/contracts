@@ -4,6 +4,7 @@ mod middleware;
 mod models;
 mod schema;
 mod utils;
+mod services;
 
 use crate::auth::secure::login_user;
 // use simple_logger::SimpleLogger;
@@ -79,7 +80,7 @@ async fn main() -> std::io::Result<()> {
                 "/api/v1/registration",
                 web::post().to(auth::secure::register_user),
             )
-            // .route("/api/v1/login", web::post().to(service::secure::login_user))
+            // .route("/api/v1/login", web::post().to(services::secure::login_user))
             .route(
                 "/api/v1/add/user",
                 web::post().to(handlers::users::add_user),

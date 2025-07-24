@@ -3,9 +3,9 @@
 diesel::table! {
     contract (id) {
         id -> Int4,
-        number -> Nullable<Text>,
+        number -> Text,
         date -> Nullable<Timestamp>,
-        organization_id -> Nullable<Int4>,
+        organization_id -> Int4,
         type_of_validity -> Nullable<Int4>,
         responsible_person_id -> Nullable<Int4>,
         address -> Nullable<Text>,
@@ -17,15 +17,15 @@ diesel::table! {
 diesel::table! {
     dict_type_of_validity (id) {
         id -> Int4,
-        name -> Nullable<Text>,
+        name -> Text,
     }
 }
 
 diesel::table! {
     organization (id) {
         id -> Int4,
-        name -> Nullable<Text>,
-        inn -> Nullable<Int8>,
+        name -> Text,
+        inn -> Int8,
         fact_address -> Nullable<Text>,
         address -> Nullable<Text>,
     }
@@ -34,8 +34,8 @@ diesel::table! {
 diesel::table! {
     responsible_person (id) {
         id -> Int4,
-        firstname -> Nullable<Text>,
-        name -> Nullable<Text>,
+        firstname -> Text,
+        name -> Text,
         lastname -> Nullable<Text>,
         user_id -> Nullable<Int4>,
     }

@@ -1,4 +1,5 @@
 use crate::auth::auth::check_admin_token;
+use crate::auth::roles::Role;
 use crate::models::auth_models::{NewUser, NewUserDTO, User, UserDTO};
 use crate::schema::users;
 use crate::utils::db::establish_connection;
@@ -6,7 +7,6 @@ use actix_web::{web, Error, HttpRequest, HttpResponse, Responder};
 use bcrypt::{hash, DEFAULT_COST};
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl};
-use crate::auth::roles::Role;
 
 pub async fn add_user(
     req: HttpRequest,
@@ -50,14 +50,15 @@ pub async fn get_users(req: HttpRequest) -> impl Responder {
     let conn = &mut establish_connection();
 
     // Fetch users from the database
-    let users = users::table
-        .load::<User>(conn)
+    let users: Vec<User> = users::table
+        .select(users::all_columns)
+        .get_results(conn)
         .expect("Error loading users");
 
     // Remove password hashes from the response
     let users_without_passwords: Vec<UserDTO> = users
         .into_iter()
-        .map(|user| UserDTO {
+        .map(|user: User| UserDTO {
             id: user.id,
             username: user.username,
             role: user.role,
