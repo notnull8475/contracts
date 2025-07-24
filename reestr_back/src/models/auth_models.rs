@@ -13,28 +13,39 @@ pub struct User {
     pub is_active: bool,
 }
 
-#[derive(Insertable, Deserialize, AsChangeset)]
+#[derive(Insertable, Serialize, Deserialize, AsChangeset, Debug)]
 #[diesel(table_name = users)]
 pub struct UserDTO {
+    pub id: i32,
     pub login: String,
     pub username: String,
-    pub id: i32,
     pub role: String,
+    pub is_active: bool,
 }
 
-#[derive(Insertable, Deserialize, AsChangeset)]
-#[diesel(table_name = users)]
+
+
+#[derive(Serialize, Deserialize)]
 pub struct NewUser {
     pub login: String,
     pub username: String,
-    pub password_hash: String,
+    pub password: String,
+    pub role: String,
 }
-
+#[derive(Insertable, Serialize, Deserialize)]
+#[diesel(table_name = users)]
+pub struct NewUserDTO {
+    pub login: String,
+    pub username: String,
+    pub password_hash: String,
+    pub role: String,
+    pub is_active: bool,
+}
 // требования к авторизации
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
-    pub id: i32,          // ID пользователя
-    pub app_role: String, // Роль пользователя
+    pub id: i32,      // ID пользователя
+    pub role: String, // Роль пользователя
     pub username: String,
     pub login: String,
     pub exp: usize, // Время истечения токена

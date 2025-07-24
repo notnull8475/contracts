@@ -4,12 +4,12 @@ mod middleware;
 mod models;
 mod schema;
 mod utils;
-mod service;
 
 use crate::auth::secure::login_user;
+// use simple_logger::SimpleLogger;
+use crate::utils::create_admin_user::create_admin_user_if_need;
 use actix_cors::Cors;
 use actix_session::config::{BrowserSession, CookieContentSecurity};
-// use simple_logger::SimpleLogger;
 use actix_session::storage::CookieSessionStore;
 use actix_session::SessionMiddleware;
 use actix_web::cookie::{Key, SameSite};
@@ -30,6 +30,7 @@ fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
 }
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    create_admin_user_if_need();
     dotenv().ok();
     // Initialize the logger
     let _log_file = OpenOptions::new()
@@ -98,10 +99,6 @@ async fn main() -> std::io::Result<()> {
                 web::get().to(handlers::users::get_roles),
             )
             .route(
-                "/api/v1/get/roles/{user_id}",
-                web::get().to(handlers::users::get_user_roles),
-            )
-            .route(
                 "/api/v1/get/users",
                 web::get().to(handlers::users::get_users),
             )
@@ -109,10 +106,6 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/v1/admin/user/delete/{user_id}",
                 web::delete().to(handlers::users::del_user),
-            )
-            .route(
-                "/api/v1/get/user/name/by/id/{id}",
-                web::get().to(handlers::users::get_user_name_by_id),
             )
     })
     .bind("0.0.0.0:8080")?

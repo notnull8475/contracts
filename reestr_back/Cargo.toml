@@ -16,3 +16,5 @@ serde = "1.0.219"
 validator = { version = "0.20.0",features = ["derive"] }
 rand = "0.9.2"
 futures-util = "0.3.31"
+lazy_static = "1.5.0"
+chrono = "0.4.41"

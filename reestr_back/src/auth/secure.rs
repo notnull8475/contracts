@@ -1,5 +1,5 @@
 use crate::auth::auth::create_jwt;
-use crate::models::auth_models::{LoginRequest, LoginResponse, NewUser, User};
+use crate::models::auth_models::{LoginRequest, LoginResponse, NewUserDTO, User};
 use crate::schema::users;
 use crate::utils::db::establish_connection;
 use actix_web::{HttpResponse, Responder, web};
@@ -8,7 +8,7 @@ use diesel::RunQueryDsl;
 use diesel::prelude::*;
 
 // Создание нового пользователя
-pub async fn register_user(user_data: web::Json<NewUser>) -> impl Responder {
+pub async fn register_user(user_data: web::Json<NewUserDTO>) -> impl Responder {
     let conn = &mut establish_connection();
 
     log::info!("Registering user: {:?}", user_data.login);
@@ -16,11 +16,12 @@ pub async fn register_user(user_data: web::Json<NewUser>) -> impl Responder {
     let hashed_password =
         hash(&user_data.password_hash, DEFAULT_COST).expect("Error hashing password");
 
-    let new_user = NewUser {
+    let new_user = NewUserDTO {
         login: user_data.login.clone(),
         password_hash: hashed_password,
-        app_role_id: user_data.app_role_id.clone(),
+        role: "".to_string(),
         username: user_data.username.clone(), // Add the missing `name` field
+        is_active: true,
     };
 
     diesel::insert_into(users::table)

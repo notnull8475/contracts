@@ -52,8 +52,7 @@ diesel::table! {
         password_hash -> Varchar,
         #[max_length = 20]
         role -> Varchar,
-        created_at -> Nullable<Timestamp>,
-        is_active -> Nullable<Bool>,
+        is_active -> Bool,
     }
 }
 

@@ -1,14 +1,12 @@
-use crate::auth;
 use crate::auth::auth::check_admin_token;
-use crate::models::auth_models::{NewUser, User, UserWithoutPassword};
+use crate::models::auth_models::{NewUser, NewUserDTO, User, UserDTO};
 use crate::schema::users;
-use crate::schema::users::name;
 use crate::utils::db::establish_connection;
-use actix_web::{Error, HttpRequest, HttpResponse, Responder, web};
-use bcrypt::{DEFAULT_COST, hash};
+use actix_web::{web, Error, HttpRequest, HttpResponse, Responder};
+use bcrypt::{hash, DEFAULT_COST};
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl};
-use std::string::String;
+use crate::auth::roles::Role;
 
 pub async fn add_user(
     req: HttpRequest,
@@ -26,16 +24,17 @@ pub async fn add_user(
         hash(&new_user_data.password, DEFAULT_COST).expect("Error hashing password");
 
     // Prepare the new user data
-    let new_user = NewUser {
+    let new_user = NewUserDTO {
         login: new_user_data.login.clone(),
-        name: new_user_data.name.clone(),
-        password: hashed_password,
-        app_role_id: new_user_data.app_role_id,
+        username: new_user_data.username.clone(),
+        password_hash: hashed_password,
+        role: new_user_data.role.clone(),
+        is_active: true,
     };
 
     // Insert the new user into the database
     diesel::insert_into(users::table)
-        .values(&new_user)
+        .values(new_user)
         .execute(conn)
         .expect("Error saving new user");
 
@@ -56,36 +55,19 @@ pub async fn get_users(req: HttpRequest) -> impl Responder {
         .expect("Error loading users");
 
     // Remove password hashes from the response
-    let users_without_passwords: Vec<UserWithoutPassword> = users
+    let users_without_passwords: Vec<UserDTO> = users
         .into_iter()
-        .map(|user| UserWithoutPassword {
+        .map(|user| UserDTO {
             id: user.id,
-            name: user.name,
+            username: user.username,
+            role: user.role,
             login: user.login,
+            is_active: user.is_active,
         })
         .collect();
     println!("{:?}", users_without_passwords);
 
     HttpResponse::Ok().json(users_without_passwords)
-}
-
-// Define a new struct without password hash
-pub async fn get_user_roles(req: HttpRequest, user_id: web::Path<i32>) -> impl Responder {
-    if let Err(response) = auth::auth::verify_and_extract_claims(&req) {
-        return response;
-    }
-
-    let conn = &mut establish_connection();
-
-    // Fetch user roles from the database
-    let roles: Vec<i32> = users::table
-        .filter(users::id.eq(user_id.into_inner()))
-        .select(users::app_role_id)
-        .distinct()
-        .load::<i32>(conn)
-        .expect("Error loading user roles");
-
-    HttpResponse::Ok().json(roles)
 }
 
 pub async fn update_user(
@@ -101,13 +83,16 @@ pub async fn update_user(
 
     // Хэширование пароля
     let hashed_password =
-        hash(&user_data.password, DEFAULT_COST).expect("Error hashing password");
+        hash(&user_data.password_hash, DEFAULT_COST).expect("Error hashing password");
 
     // Создаем обновленную структуру данных
-    let updated_user = NewUser {
+    let updated_user = User {
+        id: user_data.id,
         login: user_data.login.clone(),
-        name: user_data.name.clone(),
-        password: hashed_password, // Используем хэшированный пароль
+        username: user_data.username.clone(),
+        role: user_data.role.clone(),
+        password_hash: hashed_password, // Используем хэшированный пароль
+        is_active: user_data.is_active,
     };
 
     // Обновление пользователя
@@ -128,10 +113,9 @@ pub async fn get_roles(req: HttpRequest) -> impl Responder {
         return response;
     }
 
-    // Возможные роли системы
-    let roles = vec!["admin", "manager", "employee"];
+    let all_roles = Role::all_roles_str();
 
-    HttpResponse::Ok().json(roles)
+    HttpResponse::Ok().json(all_roles)
 }
 
 pub async fn del_user(req: HttpRequest, user_id: web::Path<i32>) -> Result<HttpResponse, Error> {
@@ -154,15 +138,19 @@ pub async fn del_user(req: HttpRequest, user_id: web::Path<i32>) -> Result<HttpR
     Ok(HttpResponse::Ok().body("User deleted successfully"))
 }
 
-pub async fn get_user_name_by_id(
-    _req: HttpRequest,
-    user_id: web::Path<i32>,
-) -> Result<HttpResponse, Error> {
+pub async fn get_user(_req: HttpRequest, user_id: web::Path<i32>) -> Result<HttpResponse, Error> {
     let conn = &mut establish_connection();
-    let user_name: String = users::table
+    let user: User = users::table
         .filter(users::id.eq(user_id.into_inner()))
-        .select(name)
+        .select(users::all_columns)
         .first(conn)
         .expect("User not found");
-    Ok(HttpResponse::Ok().json(user_name))
+    let user_dto = UserDTO {
+        id: user.id,
+        login: user.login,
+        username: user.username,
+        role: user.role,
+        is_active: user.is_active,
+    };
+    Ok(HttpResponse::Ok().json(user_dto))
 }

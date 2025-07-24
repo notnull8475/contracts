@@ -10,10 +10,10 @@ pub fn create_jwt(user: &User) -> String {
     let expiration = Utc::now() + Duration::hours(24);
     let claims = Claims {
         id: user.id,
-        app_role_id: user.app_role_id,
         login: user.login.to_string(),
         username: user.login.to_string(),
         exp: expiration.timestamp() as usize,
+        role: user.role.to_string(),
     };
 
     encode(
