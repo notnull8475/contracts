@@ -7,6 +7,7 @@ use actix_web::{Error, HttpRequest, HttpResponse, Responder, web};
 use bcrypt::{DEFAULT_COST, hash};
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl};
+use log::info;
 
 pub async fn add_user(
     req: HttpRequest,
@@ -66,8 +67,7 @@ pub async fn get_users(req: HttpRequest) -> impl Responder {
             is_active: user.is_active,
         })
         .collect();
-    println!("{:?}", users_without_passwords);
-
+    info!("{:?}", users_without_passwords);
     HttpResponse::Ok().json(users_without_passwords)
 }
 
@@ -115,7 +115,7 @@ pub async fn get_roles(req: HttpRequest) -> impl Responder {
     }
 
     let all_roles = Role::all_roles_str();
-
+    info!("{:?}", all_roles);
     HttpResponse::Ok().json(all_roles)
 }
 

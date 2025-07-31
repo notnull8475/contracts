@@ -15,8 +15,14 @@
         <!-- Отчество -->
         <v-text-field v-model="form.name" label="Отчество" />
 
-        <!-- ID пользователя -->
-        <v-text-field v-model="form.user_id" label="ID пользователя" type="number" />
+        <v-select
+          v-if="role === 'admin'"
+          v-model="form.user_id"
+          :items="userOptions"
+          label="Пользователь системы"
+          item-title="username"
+          item-value="id"
+        />
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -27,10 +33,12 @@
   </v-dialog>
 </template>
 <script setup>
-import { reactive, watch } from 'vue'
-
+import { computed, reactive, ref, watch } from 'vue'
+import {useAuthStore} from '@/store/auth';
+import { UserUtil } from '@/store/users.js'
+const authStore = useAuthStore();
 // Принимаем входные параметры
-const props = defineProps(['modelValue', 'responsiblePerson'])
+const props = defineProps(['modelValue', 'responsiblePerson','userOptions'])
 const emit = defineEmits(['update:modelValue', 'save'])
 
 // Реактивная форма
@@ -41,9 +49,17 @@ const form = reactive({
   name: '',
   user_id: null
 })
+const users = ref([])
+const role = computed(() => {
+  if (authStore.token) {
+    return authStore.user.role;
+  } else return null;
+});
 
 // Следим за изменениями входного объекта `responsiblePerson`
-watch(() => props.responsiblePerson, (newVal) => {
+watch(() => props.responsiblePerson,
+
+  (newVal) => {
   Object.assign(form, newVal || {
     id: null,
     firstname: '',
@@ -52,6 +68,8 @@ watch(() => props.responsiblePerson, (newVal) => {
     user_id: null
   })
 }, { immediate: true })
+
+
 
 // Сохранение данных
 function save() {

@@ -6,7 +6,7 @@
       <th>Имя</th>
       <th>Фамилия</th>
       <th>Отчество</th>
-      <th>ID пользователя</th>
+      <th v-if="role === 'admin'">Пользователь</th>
       <th class="text-right">Действия</th>
     </tr>
     </thead>
@@ -16,7 +16,7 @@
       <td>{{ person.firstname }}</td>
       <td>{{ person.lastname }}</td>
       <td>{{ person.name }}</td>
-      <td>{{ person.user_id }}</td>
+      <td v-if="role === 'admin'">{{ userIdToName[person.user_id] || '—' }}</td>
       <td class="text-right">
         <v-btn icon @click="$emit('edit', person)">
           <v-icon>mdi-pencil</v-icon>
@@ -30,5 +30,24 @@
   </v-table>
 </template>
 <script setup>
-defineProps(['responsiblePersons'])
+import { computed } from 'vue'
+import { UserUtil } from '@/store/users.js'
+import { useAuthStore } from '@/store/auth.js'
+const authStore = useAuthStore();
+const role = computed(() => {
+  if (authStore.token) {
+    return authStore.user.role;
+  } else return null;
+});
+const props = defineProps({
+  responsiblePersons: Array,
+  userOptions: JSON // 👈 передаём список пользователей [{ id, username }]
+})
+const userIdToName = computed(() => {
+  const map = {}
+  props.userOptions?.forEach(user => {
+    map[user.id] = user.username
+  })
+  return map
+})
 </script>

@@ -14,6 +14,7 @@
 
     <responsible-person-list
       :responsiblePersons="filteredResponsiblePersons"
+      :userOptions="userOptions"
       @edit="openForm"
       @delete="deleteResponsiblePerson"
     />
@@ -21,34 +22,40 @@
     <responsible-person-form
       v-model="dialog"
       :responsiblePerson="selectedResponsiblePerson"
+      :userOptions="userOptions"
       @save="saveResponsiblePerson"
     />
   </div>
 </template>
 <script setup async>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import ResponsiblePersonList from '@/components/lists/ResponsiblePersonList.vue'
 import ResponsiblePersonForm from '@/components/forms/ResponsiblePersonForm.vue'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
+import { UserUtil } from '@/store/users.js'
 
 /* ═══ реактивные переменные ══════════════════════════════════════ */
 const search = ref('')
 const dialog = ref(false)
 const selectedResponsiblePerson = ref(null)
 const responsiblePersons = ref([]) // ← всегда стартуем с []
-
+const users = ref([])
 /* ═══ утилита доступа к API / хранилищу ══════════════════════════ */
 const responsiblePersonUtil = ResponsiblePersonUtil()
 
+const userOptions = computed(() => users.value.map(user => ({
+  id: user.id,
+  username: user.username
+})));
 /* ═══ загрузка данных  ═══════════════════════════════════════════ */
 const fetchPage = async () => {
   try {
     responsiblePersons.value = await responsiblePersonUtil.getResponsiblePersons()
+    users.value = await UserUtil().getAllUsers();
   } catch (e) {
     console.error('Не удалось получить список ответственных лиц', e)
   }
 }
-
 onMounted(fetchPage)
 
 /* ═══ фильтр по поиску  ═════════════════════════════════════════ */
