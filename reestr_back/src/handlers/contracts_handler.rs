@@ -4,7 +4,7 @@ use crate::services::contract::{
     add_contract, get_contract, list_contract, remove_contract, update_contract,
 };
 use crate::utils::utils::response_fn;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
+use actix_web::{Error, HttpRequest, HttpResponse, web};
 
 pub async fn add_contract_req(
     req: HttpRequest,

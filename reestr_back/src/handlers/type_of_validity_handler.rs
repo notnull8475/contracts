@@ -1,8 +1,8 @@
 use crate::auth::auth;
 use crate::models::models::{NewType, TypeOfValidity};
 use crate::services::type_of_validity::{add_type, get_type, list_type, remove_type};
-use actix_web::{web, Error, HttpRequest, HttpResponse};
 use crate::utils::utils::response_fn;
+use actix_web::{Error, HttpRequest, HttpResponse, web};
 
 pub async fn add_type_req(
     req: HttpRequest,
@@ -42,5 +42,3 @@ pub async fn get_type_req(
     let resp: Result<TypeOfValidity, String> = get_type(type_id.into_inner()).await;
     response_fn(resp)
 }
-
-

@@ -18,10 +18,8 @@ export const useRequtil = defineStore('requtil', {
       } catch (error) {
         console.error('Ошибка в makePostRequest:', error.response?.status, error.message);
 
-        // Извлекаем сообщение об ошибке из ответа сервера
         const serverError = error.response?.data?.error || errorMessage || 'Ошибка при выполнении POST-запроса';
 
-        // Выбрасываем ошибку с сообщением от сервера
         throw new Error(serverError);
       }
     },

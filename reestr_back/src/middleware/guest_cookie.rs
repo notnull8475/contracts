@@ -1,4 +1,4 @@
-use actix_web::cookie::{time, Cookie, SameSite};
+use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::{
     Error, HttpMessage,
     dev::{ServiceRequest, ServiceResponse, Transform},

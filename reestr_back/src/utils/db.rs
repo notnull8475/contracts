@@ -1,7 +1,7 @@
+use diesel::Connection;
 use diesel::pg::PgConnection;
 use dotenv::dotenv;
 use std::env;
-use diesel::Connection;
 
 pub fn establish_connection() -> PgConnection {
     // Load environment variables from .env file if it exists

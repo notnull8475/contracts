@@ -4,8 +4,8 @@ use crate::services::responsible_person::{
     add_responsible_person, get_responsible_person, list_responsible_person,
     remove_responsible_person, update_responsible_person,
 };
-use actix_web::{web, Error, HttpRequest, HttpResponse};
 use crate::utils::utils::response_fn;
+use actix_web::{Error, HttpRequest, HttpResponse, web};
 
 pub async fn add_responsible_person_req(
     req: HttpRequest,

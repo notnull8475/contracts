@@ -1,4 +1,4 @@
-use crate::models::models::{Organization, OrganizationDTO};
+use crate::models::organization_models::{Organization, OrganizationDTO};
 use crate::schema::organization;
 use crate::utils::db::establish_connection;
 use diesel::prelude::*;

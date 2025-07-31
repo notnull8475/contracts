@@ -3,8 +3,8 @@ use crate::auth::roles::Role;
 use crate::models::auth_models::{NewUser, NewUserDTO, User, UserDTO};
 use crate::schema::users;
 use crate::utils::db::establish_connection;
-use actix_web::{web, Error, HttpRequest, HttpResponse, Responder};
-use bcrypt::{hash, DEFAULT_COST};
+use actix_web::{Error, HttpRequest, HttpResponse, Responder, web};
+use bcrypt::{DEFAULT_COST, hash};
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl};
 
@@ -21,7 +21,7 @@ pub async fn add_user(
 
     // Hash the password
     let hashed_password =
-        hash(&new_user_data.password, DEFAULT_COST).expect("Error hashing password");
+        hash(&new_user_data.password_hash, DEFAULT_COST).expect("Error hashing password");
 
     // Prepare the new user data
     let new_user = NewUserDTO {

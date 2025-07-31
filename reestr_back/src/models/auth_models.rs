@@ -23,13 +23,11 @@ pub struct UserDTO {
     pub is_active: bool,
 }
 
-
-
 #[derive(Serialize, Deserialize)]
 pub struct NewUser {
     pub login: String,
     pub username: String,
-    pub password: String,
+    pub password_hash: String,
     pub role: String,
 }
 #[derive(Insertable, Serialize, Deserialize)]

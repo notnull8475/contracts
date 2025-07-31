@@ -4,9 +4,7 @@ use crate::utils::db::establish_connection;
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl};
 
-pub async fn add_contract(
-    contract: ContractDTO,
-) -> Result<Contract, String> {
+pub async fn add_contract(contract: ContractDTO) -> Result<Contract, String> {
     let connection = &mut establish_connection();
     let result = diesel::insert_into(contract::table)
         .values(contract)
@@ -22,9 +20,7 @@ pub async fn remove_contract(contract_id: i32) -> Result<usize, String> {
         .map_err(|e| format!("Error to delete contract: {}", e))
 }
 
-pub async fn update_contract(
-    contract: Contract,
-) -> Result<Contract, String> {
+pub async fn update_contract(contract: Contract) -> Result<Contract, String> {
     let connection = &mut establish_connection();
     diesel::update(contract::table)
         .filter(contract::id.eq(contract.id))
