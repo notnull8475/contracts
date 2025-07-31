@@ -60,10 +60,17 @@
 </template>
 
 <script setup>
+// Принимаем входные параметры
 import { reactive, watch, computed } from 'vue'
 
 // Принимаем входные параметры
-const props = defineProps(['modelValue', 'contract','organizationsOpt','respPersonsOpt','validityTypesOpt'])
+const props = defineProps([
+  'modelValue',
+  'contract',
+  'organizationsOpt',
+  'respPersonsOpt',
+  'validityTypesOpt',
+])
 const emit = defineEmits(['update:modelValue', 'save'])
 
 // Реактивная форма
@@ -85,7 +92,7 @@ const formattedDate = computed({
     return form.date ? new Date(form.date).toISOString().split('T')[0] : ''
   },
   set(value) {
-    form.date = value ? new Date(value) : null
+    form.date = value ? `${value}T00:00:00` : null
   },
 })
 
@@ -113,6 +120,12 @@ watch(
 
 // Сохранение данных
 function save() {
+  // Проверяем, что дата имеет правильный формат
+  if (form.date && typeof form.date === 'string' && !form.date.endsWith('T00:00:00')) {
+    form.date = `${form.date.split('T')[0]}T00:00:00`
+  }
+
+  // Отправляем данные
   emit('save', { ...form })
   emit('update:modelValue', false)
 }
