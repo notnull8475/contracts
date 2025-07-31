@@ -31,7 +31,6 @@
 </template>
 <script setup>
 import { computed } from 'vue'
-import { UserUtil } from '@/store/users.js'
 import { useAuthStore } from '@/store/auth.js'
 const authStore = useAuthStore();
 const role = computed(() => {
@@ -41,7 +40,7 @@ const role = computed(() => {
 });
 const props = defineProps({
   responsiblePersons: Array,
-  userOptions: JSON // 👈 передаём список пользователей [{ id, username }]
+  userOptions: Array // 👈 передаём список пользователей [{ id, username }]
 })
 const userIdToName = computed(() => {
   const map = {}

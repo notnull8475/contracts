@@ -69,7 +69,11 @@ watch(() => props.responsiblePerson,
   })
 }, { immediate: true })
 
-
+// watch(() => props.modelValue, async (opened) => {
+//   if (opened) {
+//     users.value = await UserUtil().getAllUsers();
+//   }
+// }, { immediate: true });
 
 // Сохранение данных
 function save() {

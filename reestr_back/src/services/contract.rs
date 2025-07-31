@@ -1,4 +1,4 @@
-use crate::models::models::{Contract, ContractDTO};
+use crate::models::contract_models::{Contract, ContractDTO};
 use crate::schema::contract;
 use crate::utils::db::establish_connection;
 use diesel::prelude::*;

@@ -1,33 +1,6 @@
-use crate::schema::{contract, dict_type_of_validity, organization, responsible_person};
+use crate::schema::{dict_type_of_validity, responsible_person};
 use diesel::{AsChangeset, Insertable, Queryable};
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
-
-#[derive(Queryable, Insertable, AsChangeset, Serialize, Deserialize, Debug)]
-#[diesel(table_name = contract)]
-pub struct Contract {
-    pub id: i32,
-    pub number: String,
-    pub date: Option<SystemTime>,
-    pub organization_id: i32,
-    pub type_of_validity: Option<i32>,
-    pub responsible_person_id: Option<i32>,
-    pub address: Option<String>,
-    pub additional_agreement: Option<String>,
-    pub comment: Option<String>,
-}
-#[derive(Queryable, Insertable, AsChangeset, Serialize, Deserialize, Debug)]
-#[diesel(table_name = contract)]
-pub struct ContractDTO {
-    pub number: String,
-    pub date: Option<SystemTime>,
-    pub organization_id: i32,
-    pub type_of_validity: Option<i32>,
-    pub responsible_person_id: Option<i32>,
-    pub address: Option<String>,
-    pub additional_agreement: Option<String>,
-    pub comment: Option<String>,
-}
 
 #[derive(Queryable, Insertable, AsChangeset, Serialize, Deserialize, Debug)]
 #[diesel(table_name = dict_type_of_validity)]
@@ -39,7 +12,6 @@ pub struct TypeOfValidity {
 pub struct NewType {
     pub name: String,
 }
-
 
 #[derive(Queryable, AsChangeset, Serialize, Deserialize, Debug)]
 #[diesel(table_name = responsible_person)]

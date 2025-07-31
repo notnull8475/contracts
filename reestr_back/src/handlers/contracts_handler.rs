@@ -1,5 +1,5 @@
 use crate::auth::auth;
-use crate::models::models::{Contract, ContractDTO};
+use crate::models::contract_models::{Contract, ContractDTO};
 use crate::services::contract::{
     add_contract, get_contract, list_contract, remove_contract, update_contract,
 };

@@ -2,7 +2,7 @@ CREATE TABLE public.contract
 (
     id                    serial  NOT NULL,
     number                text    not null,
-    date                  timestamp,
+    date                  TIMESTAMPTZ,
     organization_id       integer not null,
     type_of_validity      integer,
     responsible_person_id integer,
