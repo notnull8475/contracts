@@ -1,15 +1,17 @@
 <template>
-  <div class="about">
-    <h1>This is an about page</h1>
-  </div>
-</template>
+  <v-app>
+    <v-main>
+      <!-- Hero Section -->
+      <!--      <v-parallax src="/hotel-bg.jpg" height="600" color="grey-lighten-3">-->
+      <v-container class="fill-height">
+        <v-row align="center">
+          <v-col cols="12" md="12">
+            <h1 class="text-h2 text-center mb-4">РЕЕСТР ДОГОВОРОВ</h1>
+          </v-col>
+        </v-row>
+      </v-container>
+      <!--      </v-parallax>-->
 
-<style>
-@media (min-width: 1024px) {
-  .about {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-  }
-}
-</style>
+    </v-main>
+  </v-app>
+</template>
