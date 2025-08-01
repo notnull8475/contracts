@@ -2,7 +2,9 @@
   <div class="not-found">
     <h1 class="title">404 - Страница не найдена</h1>
     <p class="message">Упс! Страница, которую вы искали, не найдена.</p>
-    <p class="sub-message">Возможно, она была удалена, изменила название или временно недоступна.</p>
+    <p class="sub-message">
+      Возможно, она была удалена, изменила название или временно недоступна.
+    </p>
     <router-link to="/" class="home-button">Вернуться на главную страницу</router-link>
   </div>
 </template>
@@ -50,7 +52,7 @@ export default {
 .home-button {
   display: inline-block;
   padding: 10px 20px;
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
   text-decoration: none;
   border-radius: 5px;

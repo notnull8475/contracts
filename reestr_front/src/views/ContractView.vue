@@ -74,7 +74,6 @@ const validityTypesOpt = computed(() =>
   })),
 )
 
-
 /* ═══ загрузка данных  ═══════════════════════════════════════════ */
 const fetchPage = async () => {
   try {

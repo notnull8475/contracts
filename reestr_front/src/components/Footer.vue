@@ -19,11 +19,8 @@
       <!--        </v-col>-->
       <!--      </v-row>-->
       <!--      <v-divider class="my-4"></v-divider>-->
-      <div class="text-center">
-        &copy; 2017 — {{ new Date().getFullYear() }}
-      </div>
+      <div class="text-center">&copy; 2017 — {{ new Date().getFullYear() }}</div>
     </v-container>
   </v-footer>
 </template>
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>

@@ -1,7 +1,13 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="600">
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
+    max-width="600"
+  >
     <v-card>
-      <v-card-title>{{ responsiblePerson?.id ? 'Редактировать ответственное лицо' : 'Добавить ответственное лицо' }}</v-card-title>
+      <v-card-title>{{
+        responsiblePerson?.id ? 'Редактировать ответственное лицо' : 'Добавить ответственное лицо'
+      }}</v-card-title>
       <v-card-text>
         <!-- ID -->
         <v-text-field v-model="form.id" label="ID" disabled />
@@ -34,11 +40,11 @@
 </template>
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import {useAuthStore} from '@/store/auth';
+import { useAuthStore } from '@/store/auth'
 import { UserUtil } from '@/store/users.js'
-const authStore = useAuthStore();
+const authStore = useAuthStore()
 // Принимаем входные параметры
-const props = defineProps(['modelValue', 'responsiblePerson','userOptions'])
+const props = defineProps(['modelValue', 'responsiblePerson', 'userOptions'])
 const emit = defineEmits(['update:modelValue', 'save'])
 
 // Реактивная форма
@@ -47,27 +53,33 @@ const form = reactive({
   firstname: '',
   lastname: '',
   name: '',
-  user_id: null
+  user_id: null,
 })
 const users = ref([])
 const role = computed(() => {
   if (authStore.token) {
-    return authStore.user.role;
-  } else return null;
-});
+    return authStore.user.role
+  } else return null
+})
 
 // Следим за изменениями входного объекта `responsiblePerson`
-watch(() => props.responsiblePerson,
+watch(
+  () => props.responsiblePerson,
 
   (newVal) => {
-  Object.assign(form, newVal || {
-    id: null,
-    firstname: '',
-    lastname: '',
-    name: '',
-    user_id: null
-  })
-}, { immediate: true })
+    Object.assign(
+      form,
+      newVal || {
+        id: null,
+        firstname: '',
+        lastname: '',
+        name: '',
+        user_id: null,
+      },
+    )
+  },
+  { immediate: true },
+)
 
 // watch(() => props.modelValue, async (opened) => {
 //   if (opened) {

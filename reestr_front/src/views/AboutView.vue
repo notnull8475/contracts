@@ -11,7 +11,6 @@
         </v-row>
       </v-container>
       <!--      </v-parallax>-->
-
     </v-main>
   </v-app>
 </template>

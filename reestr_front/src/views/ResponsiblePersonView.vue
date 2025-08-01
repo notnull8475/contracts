@@ -43,15 +43,17 @@ const users = ref([])
 /* ═══ утилита доступа к API / хранилищу ══════════════════════════ */
 const responsiblePersonUtil = ResponsiblePersonUtil()
 
-const userOptions = computed(() => users.value.map(user => ({
-  id: user.id,
-  username: user.username
-})));
+const userOptions = computed(() =>
+  users.value.map((user) => ({
+    id: user.id,
+    username: user.username,
+  })),
+)
 /* ═══ загрузка данных  ═══════════════════════════════════════════ */
 const fetchPage = async () => {
   try {
     responsiblePersons.value = await responsiblePersonUtil.getResponsiblePersons()
-    users.value = await UserUtil().getAllUsers();
+    users.value = await UserUtil().getAllUsers()
   } catch (e) {
     console.error('Не удалось получить список ответственных лиц', e)
   }
@@ -61,8 +63,8 @@ onMounted(fetchPage)
 /* ═══ фильтр по поиску  ═════════════════════════════════════════ */
 const filteredResponsiblePersons = computed(() =>
   (Array.isArray(responsiblePersons.value) ? responsiblePersons.value : []).filter(
-    p => p.lastname && p.lastname.toLowerCase().includes(search.value.toLowerCase())
-  )
+    (p) => p.lastname && p.lastname.toLowerCase().includes(search.value.toLowerCase()),
+  ),
 )
 
 /* ═══ формы add / edit / delete  ════════════════════════════════ */
@@ -75,7 +77,7 @@ async function saveResponsiblePerson(person) {
   try {
     if (person.id) {
       await responsiblePersonUtil.updateResponsiblePerson(person)
-      const idx = responsiblePersons.value.findIndex(p => p.id === person.id)
+      const idx = responsiblePersons.value.findIndex((p) => p.id === person.id)
       if (idx !== -1) responsiblePersons.value[idx] = person
     } else {
       const created = await responsiblePersonUtil.addResponsiblePerson(person)
@@ -89,7 +91,7 @@ async function saveResponsiblePerson(person) {
 async function deleteResponsiblePerson(id) {
   try {
     await responsiblePersonUtil.deleteResponsiblePerson(id)
-    responsiblePersons.value = responsiblePersons.value.filter(p => p.id !== id)
+    responsiblePersons.value = responsiblePersons.value.filter((p) => p.id !== id)
   } catch (e) {
     console.error('Ошибка удаления', e)
   }

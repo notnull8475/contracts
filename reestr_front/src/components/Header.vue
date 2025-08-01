@@ -1,12 +1,6 @@
 <template>
   <v-app-bar app color="#0F7CB7FF" dark>
-    <v-img
-        src="@/assets/logo.png"
-        max-height="40"
-        max-width="120"
-        contain
-        class="ml-2"
-    ></v-img>
+    <v-img src="@/assets/logo.png" max-height="40" max-width="120" contain class="ml-2"></v-img>
     <v-toolbar-title>РЕЕСТР ДОГОВОРОВ</v-toolbar-title>
 
     <v-spacer></v-spacer>
@@ -25,29 +19,29 @@
 </template>
 
 <script setup>
-import {computed} from 'vue';
-import {useRouter} from 'vue-router';
-import {useAuthStore} from '@/store/auth';
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/store/auth'
 
-const authStore = useAuthStore();
-const router = useRouter();
+const authStore = useAuthStore()
+const router = useRouter()
 
 // Реактивное вычисляемое свойство роли
 const role = computed(() => {
   if (authStore.token) {
-    return authStore.user.role;
-  } else return null;
-});
+    return authStore.user.role
+  } else return null
+})
 
 // Выход пользователя
 const handleLogout = async () => {
   try {
-    await authStore.logout();
-    await router.push('/login');
+    await authStore.logout()
+    await router.push('/login')
   } catch (error) {
-    alert(error.message);
+    alert(error.message)
   }
-};
+}
 </script>
 
 <style scoped>

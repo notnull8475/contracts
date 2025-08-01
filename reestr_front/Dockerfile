@@ -6,11 +6,11 @@ WORKDIR /app
 
 # Копируем файлы проекта
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+RUN npm install --frozen-lockfile
 
 # Копируем исходный код
 COPY . .
-RUN yarn build
+RUN npm build
 
 # Финальный образ
 FROM nginx:alpine

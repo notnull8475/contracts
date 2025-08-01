@@ -6,20 +6,40 @@ export const ValidTypeUtil = defineStore('validType', {
   state: () => ({}),
   actions: {
     async addValidType(newValidType) {
-      return requtil.makePostRequest(validTypesRequest + '/add', newValidType, 'Ошибка добавления договора')
+      return requtil.makePostRequest(
+        validTypesRequest + '/add',
+        newValidType,
+        'Ошибка добавления договора',
+      )
     },
     async updateValidType(validTypeData) {
-      return requtil.makePostRequest(validTypesRequest + '/update',validTypeData,'Ошибка обновления договора',)
+      return requtil.makePostRequest(
+        validTypesRequest + '/update',
+        validTypeData,
+        'Ошибка обновления договора',
+      )
     },
     async delValidType(validTypeID) {
-      return requtil.makeGetRequest(validTypesRequest + '/del', validTypeID, 'Ошибка удаления договора')
+      return requtil.makeGetRequest(
+        validTypesRequest + '/del',
+        validTypeID,
+        'Ошибка удаления договора',
+      )
     },
 
     async getValidType(validTypeID) {
-      return requtil.makeGetRequest(validTypesRequest + 'update', validTypeID, 'Ошибка получения договора')
+      return requtil.makeGetRequest(
+        validTypesRequest + 'update',
+        validTypeID,
+        'Ошибка получения договора',
+      )
     },
     async getValidTypes() {
-      return requtil.makeGetRequest(validTypesRequest + 'update','','Ошибка получения списка договоров',)
+      return requtil.makeGetRequest(
+        validTypesRequest + 'update',
+        '',
+        'Ошибка получения списка договоров',
+      )
     },
   },
 })

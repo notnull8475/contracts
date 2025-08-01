@@ -1,5 +1,5 @@
 <template>
-  <router-view/>
+  <router-view />
   <ToastContainer />
 </template>
 
@@ -7,6 +7,6 @@
 import ToastContainer from '@/components/ToastContainer.vue'
 export default {
   name: 'App',
-  components: {ToastContainer},
+  components: { ToastContainer },
 }
 </script>

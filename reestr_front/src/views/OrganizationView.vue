@@ -32,13 +32,12 @@ import OrganizationForm from '@/components/forms/OrganizationForm.vue'
 import { OrganizationUtil } from '@/store/organizations.js'
 import { useNotify } from '@/composables/useNotify.js'
 
-
 /* ═══ реактивные переменные ══════════════════════════════════════ */
 const search = ref('')
 const dialog = ref(false)
 const selectedOrganization = ref(null)
 const organizations = ref([]) // ← всегда стартуем с []
-const {notifySuccess, notifyError} = useNotify()
+const { notifySuccess, notifyError } = useNotify()
 
 /* ═══ утилита доступа к API / хранилищу ══════════════════════════ */
 const organizationUtil = OrganizationUtil()
@@ -57,8 +56,8 @@ onMounted(fetchPage)
 /* ═══ фильтр по поиску  ═════════════════════════════════════════ */
 const filteredOrganizations = computed(() =>
   (Array.isArray(organizations.value) ? organizations.value : []).filter(
-    o => o.name && o.name.toLowerCase().includes(search.value.toLowerCase())
-  )
+    (o) => o.name && o.name.toLowerCase().includes(search.value.toLowerCase()),
+  ),
 )
 
 /* ═══ формы add / edit / delete  ════════════════════════════════ */
@@ -71,13 +70,13 @@ async function saveOrganization(org) {
   try {
     if (org.id) {
       await organizationUtil.updateOrganization(org)
-      const idx = organizations.value.findIndex(o => o.id === org.id)
+      const idx = organizations.value.findIndex((o) => o.id === org.id)
       if (idx !== -1) organizations.value[idx] = org
       notifySuccess('Организация изменена')
     } else {
       const created = await organizationUtil.addOrganization(org)
       organizations.value.push(created ?? { ...org, id: Date.now() })
-      notifySuccess("Организация добавлена")
+      notifySuccess('Организация добавлена')
     }
   } catch (e) {
     notifyError('Ошибка сохранения', e.message)
@@ -88,7 +87,7 @@ async function saveOrganization(org) {
 async function deleteOrganization(id) {
   try {
     await organizationUtil.delOrganization(id)
-    organizations.value = organizations.value.filter(o => o.id !== id)
+    organizations.value = organizations.value.filter((o) => o.id !== id)
     notifySuccess(`Организация с идентификатором ${id} удалена`)
   } catch (e) {
     notifyError('Ошибка удаления', e)

@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { reactive, watch, computed, ref } from 'vue';
+import { reactive, watch, computed, ref } from 'vue'
 
 // Принимаем входные параметры
 const props = defineProps([
@@ -75,9 +75,9 @@ const props = defineProps([
   'contract',
   'organizationsOpt',
   'respPersonsOpt',
-  'validityTypesOpt'
-]);
-const emit = defineEmits(['update:modelValue', 'save']);
+  'validityTypesOpt',
+])
+const emit = defineEmits(['update:modelValue', 'save'])
 
 // Реактивная форма
 const form = reactive({
@@ -89,29 +89,29 @@ const form = reactive({
   responsible_person_id: null,
   address: '',
   additional_agreement: '',
-  comment: ''
-});
+  comment: '',
+})
 
 // Поиск организации
-const searchOrganization = ref('');
+const searchOrganization = ref('')
 
 // Фильтруем список организаций
 const filteredOrganizations = computed(() => {
-  if (!props.organizationsOpt) return [];
-  return props.organizationsOpt.filter(org =>
-    org.name.toLowerCase().includes(searchOrganization.value?.toLowerCase() || '')
-  );
-});
+  if (!props.organizationsOpt) return []
+  return props.organizationsOpt.filter((org) =>
+    org.name.toLowerCase().includes(searchOrganization.value?.toLowerCase() || ''),
+  )
+})
 
 // Форматируем дату для отображения в поле ввода
 const formattedDate = computed({
   get() {
-    return form.date ? new Date(form.date).toISOString().split('T')[0] : '';
+    return form.date ? new Date(form.date).toISOString().split('T')[0] : ''
   },
   set(value) {
-    form.date = value ? `${value}T00:00:00` : null;
-  }
-});
+    form.date = value ? `${value}T00:00:00` : null
+  },
+})
 
 // Следим за изменениями входного объекта `contract`
 watch(
@@ -128,23 +128,23 @@ watch(
         responsible_person_id: null,
         address: '',
         additional_agreement: '',
-        comment: ''
-      }
-    );
+        comment: '',
+      },
+    )
   },
-  { immediate: true }
-);
+  { immediate: true },
+)
 
 // Сохранение данных
 function save() {
   // Проверяем, что дата имеет правильный формат
   if (form.date && typeof form.date === 'string' && !form.date.endsWith('T00:00:00')) {
-    form.date = `${form.date.split('T')[0]}T00:00:00`;
+    form.date = `${form.date.split('T')[0]}T00:00:00`
   }
 
   // Отправляем данные
-  emit('save', { ...form });
-  emit('update:modelValue', false);
+  emit('save', { ...form })
+  emit('update:modelValue', false)
 }
 </script>
 

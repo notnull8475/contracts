@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia';
-import axios from '@/axios.js';
+import { defineStore } from 'pinia'
+import axios from '@/axios.js'
 
 export const useRequtil = defineStore('requtil', {
   state: () => ({}),
@@ -13,14 +13,15 @@ export const useRequtil = defineStore('requtil', {
      */
     async makePostRequest(url, data, errorMessage) {
       try {
-        const response = await axios.post(url, data);
-        return response.data;
+        const response = await axios.post(url, data)
+        return response.data
       } catch (error) {
-        console.error('Ошибка в makePostRequest:', error.response?.status, error.message);
+        console.error('Ошибка в makePostRequest:', error.response?.status, error.message)
 
-        const serverError = error.response?.data?.error || errorMessage || 'Ошибка при выполнении POST-запроса';
+        const serverError =
+          error.response?.data?.error || errorMessage || 'Ошибка при выполнении POST-запроса'
 
-        throw new Error(serverError);
+        throw new Error(serverError)
       }
     },
 
@@ -33,11 +34,11 @@ export const useRequtil = defineStore('requtil', {
      */
     async makeGetRequest(url, params, errorMessage) {
       try {
-        const response = await axios.get(`${url}${params}`);
-        return response.data;
+        const response = await axios.get(`${url}${params}`)
+        return response.data
       } catch (error) {
-        console.error('Ошибка в makeGetRequest:', error.response?.status, error.message);
-        throw new Error(errorMessage || 'Ошибка при выполнении GET-запроса');
+        console.error('Ошибка в makeGetRequest:', error.response?.status, error.message)
+        throw new Error(errorMessage || 'Ошибка при выполнении GET-запроса')
       }
     },
 
@@ -50,12 +51,12 @@ export const useRequtil = defineStore('requtil', {
      */
     async makeDeleteRequest(url, params, errorMessage) {
       try {
-        const response = await axios.delete(`${url}${params}`);
-        return response.data;
+        const response = await axios.delete(`${url}${params}`)
+        return response.data
       } catch (error) {
-        console.error('Ошибка в makeDeleteRequest:', error.response?.status, error.message);
-        throw new Error(errorMessage || 'Ошибка при выполнении DELETE-запроса');
+        console.error('Ошибка в makeDeleteRequest:', error.response?.status, error.message)
+        throw new Error(errorMessage || 'Ошибка при выполнении DELETE-запроса')
       }
     },
   },
-});
+})

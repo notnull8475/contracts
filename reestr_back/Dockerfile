@@ -11,6 +11,7 @@ RUN cargo build --release
 
 # Копируем исходный код
 COPY src ./src
+COPY .env.prod .env
 RUN cargo build --release
 
 # Финальный образ
@@ -18,9 +19,9 @@ FROM debian:buster-slim
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
-
+COPY .env.prod .env
 # Копируем скомпилированный бинарник
-COPY --from=builder /app/target/release/backend .
+COPY --from=builder /app/target/release/reestr_back .
 
 # Команда запуска
-CMD ["./backend"]
+CMD ["./reestr_back"]

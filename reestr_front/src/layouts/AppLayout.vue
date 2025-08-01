@@ -1,16 +1,16 @@
 <template>
   <v-app>
-    <Header/>
+    <Header />
 
     <!-- Динамическое содержимое страниц -->
     <v-main class="bg-gray-100">
       <v-container>
-        <router-view/>
+        <router-view />
       </v-container>
     </v-main>
 
     <!-- Ваш Footer -->
-    <Footer/>
+    <Footer />
   </v-app>
 </template>
 <script setup lang="ts">
