@@ -21,9 +21,6 @@
           <v-btn icon @click="$emit('edit', person)">
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
-          <v-btn icon color="error" @click="$emit('delete', person.id)">
-            <v-icon>mdi-delete</v-icon>
-          </v-btn>
         </td>
       </tr>
     </tbody>

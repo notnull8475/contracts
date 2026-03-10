@@ -67,6 +67,7 @@
         <v-checkbox v-model="form.actual" label="Актуален" />
       </v-card-text>
       <v-card-actions>
+        <v-btn v-if="contract?.id" color="error" @click="deleteItem">Удалить</v-btn>
         <v-spacer />
         <v-btn color="primary" @click="save">Сохранить</v-btn>
         <v-btn text @click="$emit('update:modelValue', false)">Отмена</v-btn>
@@ -85,7 +86,7 @@ const props = defineProps([
   'respPersonsOpt',
   'validityTypesOpt',
 ])
-const emit = defineEmits(['update:modelValue', 'save'])
+const emit = defineEmits(['update:modelValue', 'save', 'delete'])
 
 const form = reactive({
   id: null,
@@ -163,6 +164,11 @@ function save() {
   }
 
   emit('save', { ...form })
+  emit('update:modelValue', false)
+}
+
+function deleteItem() {
+  emit('delete', form.id)
   emit('update:modelValue', false)
 }
 </script>

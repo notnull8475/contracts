@@ -31,6 +31,7 @@
         />
       </v-card-text>
       <v-card-actions>
+        <v-btn v-if="responsiblePerson?.id" color="error" @click="deleteItem">Удалить</v-btn>
         <v-spacer />
         <v-btn color="primary" @click="save">Сохранить</v-btn>
         <v-btn text @click="$emit('update:modelValue', false)">Отмена</v-btn>
@@ -45,7 +46,7 @@ import { UserUtil } from '@/store/users.js'
 const authStore = useAuthStore()
 // Принимаем входные параметры
 const props = defineProps(['modelValue', 'responsiblePerson', 'userOptions'])
-const emit = defineEmits(['update:modelValue', 'save'])
+const emit = defineEmits(['update:modelValue', 'save', 'delete'])
 
 // Реактивная форма
 const form = reactive({
@@ -90,6 +91,11 @@ watch(
 // Сохранение данных
 function save() {
   emit('save', { ...form })
+  emit('update:modelValue', false)
+}
+
+function deleteItem() {
+  emit('delete', form.id)
   emit('update:modelValue', false)
 }
 </script>

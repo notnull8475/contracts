@@ -16,7 +16,6 @@
       :responsiblePersons="filteredResponsiblePersons"
       :userOptions="userOptions"
       @edit="openForm"
-      @delete="deleteResponsiblePerson"
     />
 
     <responsible-person-form
@@ -24,6 +23,7 @@
       :responsiblePerson="selectedResponsiblePerson"
       :userOptions="userOptions"
       @save="saveResponsiblePerson"
+      @delete="deleteResponsiblePerson"
     />
   </div>
 </template>
@@ -94,6 +94,7 @@ async function deleteResponsiblePerson(id) {
     responsiblePersons.value = responsiblePersons.value.filter((p) => p.id !== id)
   } catch (e) {
     console.error('Ошибка удаления', e)
+    alert(e.message)
   }
 }
 </script>

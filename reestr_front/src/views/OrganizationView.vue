@@ -24,7 +24,6 @@
       v-else
       :organizations="filteredOrganizations"
       @edit="openForm"
-      @delete="deleteOrganization"
     />
 
     <v-alert
@@ -39,6 +38,7 @@
       v-model="dialog"
       :organization="selectedOrganization"
       @save="saveOrganization"
+      @delete="deleteOrganization"
     />
   </div>
 </template>

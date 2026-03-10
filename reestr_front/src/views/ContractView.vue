@@ -19,7 +19,6 @@
       :organizationsOpt="organizationsOpt"
       :validityTypesOpt="validityTypesOpt"
       @edit="openForm"
-      @delete="deleteContract"
     />
 
     <contract-form
@@ -29,6 +28,7 @@
       :organizationsOpt="organizationsOpt"
       :validityTypesOpt="validityTypesOpt"
       @save="saveContract"
+      @delete="deleteContract"
     />
     <validity-types-form
       v-model="VTdialog"
@@ -47,7 +47,6 @@ import { OrganizationUtil } from '@/store/organizations.js'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import ValidityTypesForm from '@/components/forms/ValidityTypesForm.vue'
 import { ValidityTypesUtil } from '@/store/validityTypes.js'
-import { ca } from 'vuetify/locale'
 
 /* ═══ реактивные переменные ══════════════════════════════════════ */
 const search = ref('')
@@ -151,6 +150,7 @@ async function deleteContract(id) {
     contracts.value = contracts.value.filter((c) => c.id !== id)
   } catch (e) {
     console.error('Ошибка удаления', e)
+    alert(e.message)
   }
 }
 </script>

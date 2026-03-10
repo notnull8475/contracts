@@ -31,9 +31,6 @@
         <v-btn icon @click="$emit('edit', contract)">
           <v-icon>mdi-pencil</v-icon>
         </v-btn>
-        <v-btn icon color="error" @click="$emit('delete', contract.id)">
-          <v-icon>mdi-delete</v-icon>
-        </v-btn>
       </td>
     </tr>
     </tbody>

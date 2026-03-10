@@ -43,15 +43,6 @@
         <v-btn icon size="small" @click="$emit('edit', org)" variant="text">
           <v-icon>mdi-pencil</v-icon>
         </v-btn>
-        <v-btn
-          icon
-          size="small"
-          color="error"
-          @click="$emit('delete', org.id)"
-          variant="text"
-        >
-          <v-icon>mdi-delete</v-icon>
-        </v-btn>
       </td>
     </tr>
     </tbody>
@@ -68,7 +59,7 @@ defineProps({
     default: () => []
   }
 })
-defineEmits(['edit', 'delete'])
+defineEmits(['edit'])
 </script>
 
 <style scoped>

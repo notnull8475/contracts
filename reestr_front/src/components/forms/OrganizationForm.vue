@@ -69,6 +69,7 @@
         <v-text-field v-model="form.opf_short" label="Организационно-правовая форма (краткая)" />
       </v-card-text>
       <v-card-actions>
+        <v-btn v-if="organization?.id" color="error" @click="deleteItem">Удалить</v-btn>
         <v-spacer />
         <v-btn color="primary" @click="save">Сохранить</v-btn>
         <v-btn text @click="$emit('update:modelValue', false)">Отмена</v-btn>
@@ -83,7 +84,7 @@ import { useNotify } from '@/composables/useNotify.js'
 import { OrganizationUtil } from '@/store/organizations.js'
 
 const props = defineProps(['modelValue', 'organization'])
-const emit = defineEmits(['update:modelValue', 'save'])
+const emit = defineEmits(['update:modelValue', 'save', 'delete'])
 
 const { notifyError, notifySuccess } = useNotify()
 const organizationStore = OrganizationUtil()
@@ -215,6 +216,11 @@ async function save() {
   } catch (e) {
     notifyError('Ошибка сохранения', e.message)
   }
+}
+
+function deleteItem() {
+  emit('delete', form.id)
+  emit('update:modelValue', false)
 }
 </script>
 
