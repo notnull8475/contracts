@@ -2,10 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '@/store/auth.js'
 
 const apiClient = axios.create({
-  baseURL: 'http://192.168.0.24', // URL вашего бэкенда
-  //baseURL: 'http://localhost:8080', // URL вашего бэкенда
-  // baseURL: import.meta.env.VITE_API_BASE_URL,
-  // baseURL: 'https://image.alchemyidea.ru',
+  baseURL: 'http://localhost:8080', // URL вашего бэкенда
   headers: {
     'Content-Type': 'application/json',
   },
