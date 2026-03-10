@@ -58,5 +58,11 @@ export const OrganizationUtil = defineStore('organization', {
       const requtil = useRequtil()
       return requtil.makeGetRequest(`${orgRequest}/list`, '', 'Ошибка получения списка организаций')
     },
+
+    async getOrganizationByInn(inn) {
+      const requtil = useRequtil()
+      // Исправляем URL для соответствия бэкенду
+      return requtil.makeGetRequest(`${orgRequest}/get_by_inn/${inn}`, '', 'Ошибка получения организации по ИНН')
+    }
   },
 })

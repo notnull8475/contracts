@@ -10,7 +10,6 @@ export const ValidityTypesUtil = defineStore('validityTypes', {
       const requtil = useRequtil()
       return requtil.makePostRequest(`${vtRequest}/add`, newOrg, 'Ошибка добавления типа договора')
     },
-
     async updateValidityTypes(OrgData) {
       const requtil = useRequtil()
       return requtil.makePostRequest(

@@ -30,7 +30,12 @@
       :validityTypesOpt="validityTypesOpt"
       @save="saveContract"
     />
-    <validity-types-form v-model="VTdialog" @save="saveType" />
+    <validity-types-form
+      v-model="VTdialog"
+      :validityTypesOpt="validityTypesOpt"
+      @save="saveType"
+      @delete="deleteType"
+    />
   </div>
 </template>
 <script setup async>
@@ -42,6 +47,7 @@ import { OrganizationUtil } from '@/store/organizations.js'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import ValidityTypesForm from '@/components/forms/ValidityTypesForm.vue'
 import { ValidityTypesUtil } from '@/store/validityTypes.js'
+import { ca } from 'vuetify/locale'
 
 /* ═══ реактивные переменные ══════════════════════════════════════ */
 const search = ref('')
@@ -64,7 +70,7 @@ const respPersonsOpt = computed(() =>
 const organizationsOpt = computed(() =>
   organizations.value.map((i) => ({
     id: i.id,
-    name: i.name,
+    short_name_with_opf: i.short_name_with_opf,
   })),
 )
 const validityTypesOpt = computed(() =>
@@ -123,10 +129,19 @@ async function saveContract(contract) {
 
 async function saveType(type) {
   try {
-    const created = await vtUtil.addValidityTypes(type)
-    type.value.push(created ?? { ...type, id: Date.now() })
+    await vtUtil.addValidityTypes(type)
+    validityTypes.value = await ValidityTypesUtil().getValidityTypes()
   } catch (e) {
     console.error('Ошибка сохранения', e)
+  }
+}
+
+async function deleteType(id) {
+  try {
+    await vtUtil.delValidityTypes(id)  // вызов API удаления
+    validityTypes.value = validityTypes.value.filter(t => t.id !== id) // обновляем список
+  } catch (e) {
+    console.error('Ошибка удаления типа', e)
   }
 }
 

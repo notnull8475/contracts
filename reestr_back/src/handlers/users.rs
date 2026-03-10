@@ -3,8 +3,8 @@ use crate::auth::roles::Role;
 use crate::models::auth_models::{NewUser, NewUserDTO, User, UserDTO};
 use crate::schema::users;
 use crate::utils::db::establish_connection;
-use actix_web::{Error, HttpRequest, HttpResponse, Responder, web};
-use bcrypt::{DEFAULT_COST, hash};
+use actix_web::{web, Error, HttpRequest, HttpResponse, Responder};
+use bcrypt::{hash, DEFAULT_COST};
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl};
 use log::info;
@@ -30,7 +30,7 @@ pub async fn add_user(
         username: new_user_data.username.clone(),
         password_hash: hashed_password,
         role: new_user_data.role.clone(),
-        is_active: true,
+        is_active: Option::from(true),
     };
 
     // Insert the new user into the database

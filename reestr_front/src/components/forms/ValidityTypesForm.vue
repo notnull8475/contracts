@@ -5,20 +5,42 @@
     max-width="600"
   >
     <v-card>
-      <v-card-title
-        >{{ organization?.id ? 'Редактировать тип договора' : 'Добавить тип договора' }}
+      <v-card-title>
+        {{ form.id ? 'Редактировать тип договора' : 'Добавить тип договора' }}
       </v-card-title>
       <v-card-text>
         <!-- ID -->
         <v-text-field v-model="form.id" label="ID" disabled />
 
-        <!-- Название организации -->
+        <!-- Название типа договора -->
         <v-text-field
           v-model="form.name"
           label="Название тип договора"
           :error="!!errors.name"
           :error-messages="errors.name"
         />
+
+        <!-- Список уже добавленных типов договоров -->
+        <div class="mt-4">
+          <!--          <h3>Уже добавленные типы договоров:</h3>-->
+          <v-list dense>
+            <v-list dense>
+              <v-list-item
+                v-for="type in validityTypesOpt"
+                :key="type.id"
+                class="d-flex justify-space-between"
+              >
+                {{ type.name }}
+                <v-btn icon color="error" @click="$emit('delete', type.id)">
+                  <v-icon>mdi-delete</v-icon>
+                </v-btn>
+              </v-list-item>
+            </v-list>
+            <v-list-item v-if="!validityTypesOpt || validityTypesOpt.length === 0">
+              Пока нет добавленных типов
+            </v-list-item>
+          </v-list>
+        </div>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -30,10 +52,10 @@
 </template>
 
 <script setup>
-import { reactive, watch, ref } from 'vue'
+import { reactive, watch } from 'vue'
 import { useNotify } from '@/composables/useNotify.js'
 
-const props = defineProps(['modelValue', 'organization'])
+const props = defineProps(['modelValue', 'organization', 'validityTypesOpt'])
 const emit = defineEmits(['update:modelValue', 'save'])
 
 const { notifyError } = useNotify()

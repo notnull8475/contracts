@@ -1,5 +1,5 @@
 use crate::auth::roles::Role;
-use crate::models::auth_models::{NewUserDTO, User, UserDTO};
+use crate::models::auth_models::{NewUserDTO, User};
 use crate::schema::users;
 use crate::utils::db::establish_connection;
 use bcrypt::{DEFAULT_COST, hash};
@@ -20,7 +20,7 @@ pub fn create_admin_user_if_need() {
             username: "admin".to_string(),
             password_hash: hash("admin", DEFAULT_COST).expect("Error hashing password"),
             role: Role::Admin.as_str().to_string(),
-            is_active: true,
+            is_active: Option::from(true),
         };
         println!("Create admin user");
         diesel::insert_into(users::table)

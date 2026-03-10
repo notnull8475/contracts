@@ -15,13 +15,7 @@ pub async fn add_organization_req(
     if let Err(response) = auth::verify_and_extract_claims(&req) {
         return Ok(response);
     }
-    let organization = match organization.validate_and_convert() {
-        Ok(org) => org,
-        Err(err) => {
-            return Ok(HttpResponse::BadRequest().body(format!("Validation error: {}", err)));
-        }
-    };
-    let resp: Result<Organization, String> = add_organization(organization).await;
+    let resp: Result<Organization, String> = add_organization(organization.into_inner()).await;
     response_fn(resp)
 }
 pub async fn del_organization_req(

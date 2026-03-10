@@ -2,10 +2,10 @@ use crate::auth::auth::create_jwt;
 use crate::models::auth_models::{LoginRequest, LoginResponse, NewUserDTO, User};
 use crate::schema::users;
 use crate::utils::db::establish_connection;
-use actix_web::{HttpResponse, Responder, web};
-use bcrypt::{DEFAULT_COST, hash, verify};
-use diesel::RunQueryDsl;
+use actix_web::{web, HttpResponse, Responder};
+use bcrypt::{hash, verify, DEFAULT_COST};
 use diesel::prelude::*;
+use diesel::RunQueryDsl;
 
 // Создание нового пользователя
 pub async fn register_user(user_data: web::Json<NewUserDTO>) -> impl Responder {
@@ -21,7 +21,7 @@ pub async fn register_user(user_data: web::Json<NewUserDTO>) -> impl Responder {
         password_hash: hashed_password,
         role: "".to_string(),
         username: user_data.username.clone(), // Add the missing `name` field
-        is_active: true,
+        is_active: Option::from(true),
     };
 
     diesel::insert_into(users::table)
@@ -39,6 +39,10 @@ pub async fn login_user(login_data: web::Json<LoginRequest>) -> impl Responder {
 
     log::info!("Logging in user: {:?}", login_data.login);
 
+    // let login_with_password_hash = LoginWithPasswordHash {
+    //     login: login_data.login.clone(),
+    //     password_hash: hash(&login_data.password, DEFAULT_COST).expect("Error hashing password")
+    // };
     if let Ok(user) = users::table
         .filter(users::login.eq(&login_data.login))
         .first::<User>(conn)

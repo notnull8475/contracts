@@ -4,13 +4,18 @@ diesel::table! {
     contract (id) {
         id -> Int4,
         number -> Text,
-        date -> Nullable<Timestamp>,
+        date_from -> Nullable<Timestamp>,
         organization_id -> Int4,
         type_of_validity -> Nullable<Int4>,
         responsible_person_id -> Nullable<Int4>,
         address -> Nullable<Text>,
         additional_agreement -> Nullable<Text>,
         comment -> Nullable<Text>,
+        date_to -> Nullable<Timestamptz>,
+        contract_period -> Nullable<Int4>,
+        created_time -> Nullable<Timestamptz>,
+        updated_time -> Nullable<Timestamptz>,
+        actual -> Nullable<Bool>,
     }
 }
 
@@ -24,10 +29,22 @@ diesel::table! {
 diesel::table! {
     organization (id) {
         id -> Int4,
-        name -> Text,
+        short_name_with_opf -> Text,
         inn -> Int8,
         fact_address -> Nullable<Text>,
-        address -> Nullable<Text>,
+        legal_address -> Nullable<Text>,
+        #[max_length = 256]
+        management_post -> Nullable<Varchar>,
+        #[max_length = 256]
+        management_name -> Nullable<Varchar>,
+        #[max_length = 256]
+        ogrn -> Nullable<Varchar>,
+        #[max_length = 256]
+        full_name_with_opf -> Nullable<Varchar>,
+        #[max_length = 256]
+        opf_full -> Nullable<Varchar>,
+        #[max_length = 256]
+        opf_short -> Nullable<Varchar>,
     }
 }
 
@@ -52,7 +69,7 @@ diesel::table! {
         password_hash -> Varchar,
         #[max_length = 20]
         role -> Varchar,
-        is_active -> Bool,
+        is_active -> Nullable<Bool>,
     }
 }
 

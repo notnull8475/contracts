@@ -5,7 +5,7 @@
     max-width="600"
   >
     <v-card>
-      <v-card-title>{{ contract?.id ? 'Редактировать договор' : 'Добавить договор' }}</v-card-title>
+      <v-card-title>{{ form.id ? 'Редактировать договор' : 'Добавить договор' }}</v-card-title>
       <v-card-text>
         <!-- ID -->
         <v-text-field v-model="form.id" label="ID" disabled />
@@ -13,15 +13,21 @@
         <!-- Номер договора -->
         <v-text-field v-model="form.number" label="Номер договора" />
 
-        <!-- Дата договора -->
-        <v-text-field v-model="formattedDate" label="Дата договора" type="date" />
+        <!-- Дата начала договора -->
+        <v-text-field v-model="formattedDateFrom" label="Дата начала договора" type="date" />
+
+        <!-- Дата окончания договора -->
+        <v-text-field v-model="formattedDateTo" label="Дата окончания договора" type="date" />
+
+        <!-- Срок действия договора (месяцы) -->
+        <v-text-field v-model.number="form.contract_period" label="Срок действия (месяцев)" type="number" min="0" />
 
         <!-- Выбор организации -->
         <v-autocomplete
           v-model="form.organization_id"
           :items="filteredOrganizations"
           label="Организация"
-          item-title="name"
+          item-title="short_name_with_opf"
           item-value="id"
           v-model:search="searchOrganization"
           placeholder="Введите название организации"
@@ -56,6 +62,9 @@
 
         <!-- Комментарий -->
         <v-textarea v-model="form.comment" label="Комментарий" />
+
+        <!-- Активен -->
+        <v-checkbox v-model="form.actual" label="Актуален" />
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -69,7 +78,6 @@
 <script setup>
 import { reactive, watch, computed, ref } from 'vue'
 
-// Принимаем входные параметры
 const props = defineProps([
   'modelValue',
   'contract',
@@ -79,41 +87,48 @@ const props = defineProps([
 ])
 const emit = defineEmits(['update:modelValue', 'save'])
 
-// Реактивная форма
 const form = reactive({
   id: null,
   number: '',
-  date: null,
+  date_from: null,
+  date_to: null,
+  contract_period: null,
   organization_id: null,
   type_of_validity: null,
   responsible_person_id: null,
   address: '',
   additional_agreement: '',
   comment: '',
+  actual: false,
 })
 
-// Поиск организации
 const searchOrganization = ref('')
 
-// Фильтруем список организаций
 const filteredOrganizations = computed(() => {
   if (!props.organizationsOpt) return []
   return props.organizationsOpt.filter((org) =>
-    org.name.toLowerCase().includes(searchOrganization.value?.toLowerCase() || ''),
+    org.short_name_with_opf.toLowerCase().includes(searchOrganization.value?.toLowerCase() || '')
   )
 })
 
-// Форматируем дату для отображения в поле ввода
-const formattedDate = computed({
+const formattedDateFrom = computed({
   get() {
-    return form.date ? new Date(form.date).toISOString().split('T')[0] : ''
+    return form.date_from ? new Date(form.date_from).toISOString().split('T')[0] : ''
   },
   set(value) {
-    form.date = value ? `${value}T00:00:00` : null
+    form.date_from = value ? `${value}T00:00:00` : null
   },
 })
 
-// Следим за изменениями входного объекта `contract`
+const formattedDateTo = computed({
+  get() {
+    return form.date_to ? new Date(form.date_to).toISOString().split('T')[0] : ''
+  },
+  set(value) {
+    form.date_to = value ? `${value}T00:00:00` : null
+  },
+})
+
 watch(
   () => props.contract,
   (newVal) => {
@@ -122,32 +137,32 @@ watch(
       newVal || {
         id: null,
         number: '',
-        date: null,
+        date_from: null,
+        date_to: null,
+        contract_period: null,
         organization_id: null,
         type_of_validity: null,
         responsible_person_id: null,
         address: '',
         additional_agreement: '',
         comment: '',
-      },
+        actual: false,
+      }
     )
   },
-  { immediate: true },
+  { immediate: true }
 )
 
-// Сохранение данных
 function save() {
-  // Проверяем, что дата имеет правильный формат
-  if (form.date && typeof form.date === 'string' && !form.date.endsWith('T00:00:00')) {
-    form.date = `${form.date.split('T')[0]}T00:00:00`
+  // Normalize date strings as ISO datetime strings ending with T00:00:00
+  if (form.date_from && typeof form.date_from === 'string' && !form.date_from.endsWith('T00:00:00')) {
+    form.date_from = `${form.date_from.split('T')[0]}T00:00:00`
+  }
+  if (form.date_to && typeof form.date_to === 'string' && !form.date_to.endsWith('T00:00:00')) {
+    form.date_to = `${form.date_to.split('T')[0]}T00:00:00`
   }
 
-  // Отправляем данные
   emit('save', { ...form })
   emit('update:modelValue', false)
 }
 </script>
-
-<style scoped>
-/* Дополнительные стили, если нужны */
-</style>

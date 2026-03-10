@@ -41,9 +41,10 @@ fn validate_unique_username(login: &str) -> Result<(), ValidationError> {
         .filter(users::login.eq(login))
         .first::<User>(conn)
     {
-        return Err(ValidationError::new("Логин уже используется"));
+        Err(ValidationError::new("Логин уже используется"))
+    } else {
+        Ok(())
     }
-    Ok(())
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]

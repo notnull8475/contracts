@@ -1,10 +1,10 @@
-use crate::models::organization_models::{Organization, OrganizationDTO};
+use crate::models::organization_models::{NewOrganizationDTO, Organization};
 use crate::schema::organization;
 use crate::utils::db::establish_connection;
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl};
 
-pub async fn add_organization(organization: OrganizationDTO) -> Result<Organization, String> {
+pub async fn add_organization(organization: NewOrganizationDTO) -> Result<Organization, String> {
     let connection = &mut establish_connection();
     let result = diesel::insert_into(organization::table)
         .values(organization)

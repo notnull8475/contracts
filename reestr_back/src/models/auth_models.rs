@@ -10,7 +10,7 @@ pub struct User {
     pub username: String,
     pub password_hash: String,
     pub role: String,
-    pub is_active: bool,
+    pub is_active: Option<bool>,
 }
 
 #[derive(Insertable, Serialize, Deserialize, AsChangeset, Debug)]
@@ -20,7 +20,7 @@ pub struct UserDTO {
     pub login: String,
     pub username: String,
     pub role: String,
-    pub is_active: bool,
+    pub is_active: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -37,7 +37,7 @@ pub struct NewUserDTO {
     pub username: String,
     pub password_hash: String,
     pub role: String,
-    pub is_active: bool,
+    pub is_active: Option<bool>,
 }
 // требования к авторизации
 #[derive(Serialize, Deserialize)]
