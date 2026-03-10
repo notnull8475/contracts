@@ -90,7 +90,7 @@ async function saveResponsiblePerson(person) {
 
 async function deleteResponsiblePerson(id) {
   try {
-    await responsiblePersonUtil.deleteResponsiblePerson(id)
+    await responsiblePersonUtil.delResponsiblePerson(id)
     responsiblePersons.value = responsiblePersons.value.filter((p) => p.id !== id)
   } catch (e) {
     console.error('Ошибка удаления', e)
