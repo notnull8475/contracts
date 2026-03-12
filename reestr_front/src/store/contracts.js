@@ -47,5 +47,34 @@ export const ContractUtil = defineStore('contract', {
         'Ошибка получения списка договоров',
       )
     },
+    async uploadFile(contractId, file) {
+      const requtil = useRequtil()
+      return requtil.makeUploadRequest(
+        contractRequest + '/files/',
+        contractId,
+        file,
+        'Ошибка загрузки файла',
+      )
+    },
+    async getContractFiles(contractId) {
+      const requtil = useRequtil()
+      return requtil.makeGetRequest(
+        contractRequest + '/files/',
+        contractId,
+        'Ошибка получения файлов',
+      )
+    },
+    async downloadFile(fileId) {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+      window.open(`${baseUrl}/api/v1/contracts/files/download/${fileId}`, '_blank')
+    },
+    async deleteFile(fileId) {
+      const requtil = useRequtil()
+      return requtil.makeDeleteRequest(
+        contractRequest + '/files/delete/',
+        fileId,
+        'Ошибка удаления файла',
+      )
+    },
   },
 })

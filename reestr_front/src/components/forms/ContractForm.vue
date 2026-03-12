@@ -65,6 +65,51 @@
 
         <!-- Активен -->
         <v-checkbox v-model="form.actual" label="Актуален" />
+
+        <!-- Файлы -->
+        <div v-if="contract?.id">
+          <v-divider class="my-4" />
+          <h4 class="mb-2">Файлы</h4>
+          
+          <v-file-input
+            v-model="newFile"
+            label="Выберите файл"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+            prepend-icon="mdi-paperclip"
+            @change="handleFileUpload"
+            :loading="uploading"
+          />
+
+          <v-list density="compact" class="mt-2">
+            <v-list-item
+              v-for="file in files"
+              :key="file.id"
+            >
+              <template v-slot:prepend>
+                <v-icon>mdi-file-document</v-icon>
+              </template>
+              <v-list-item-title>{{ file.original_name }}</v-list-item-title>
+              <v-list-item-subtitle>
+                {{ formatFileSize(file.file_size) }}
+              </v-list-item-subtitle>
+              <template v-slot:append>
+                <v-btn
+                  icon="mdi-download"
+                  size="small"
+                  variant="text"
+                  @click="downloadFile(file.id)"
+                />
+                <v-btn
+                  icon="mdi-delete"
+                  size="small"
+                  variant="text"
+                  color="error"
+                  @click="removeFile(file.id)"
+                />
+              </template>
+            </v-list-item>
+          </v-list>
+        </div>
       </v-card-text>
       <v-card-actions>
         <v-btn v-if="contract?.id" color="error" @click="deleteItem">Удалить</v-btn>
@@ -78,15 +123,10 @@
 
 <script setup>
 import { reactive, watch, computed, ref } from 'vue'
+import { ContractUtil } from '@/store/contracts'
+import { useToastStore } from '@/store/toast'
 
-const props = defineProps([
-  'modelValue',
-  'contract',
-  'organizationsOpt',
-  'respPersonsOpt',
-  'validityTypesOpt',
-])
-const emit = defineEmits(['update:modelValue', 'save', 'delete'])
+const toast = useToastStore()
 
 const form = reactive({
   id: null,
@@ -102,6 +142,10 @@ const form = reactive({
   comment: '',
   actual: false,
 })
+
+const newFile = ref(null)
+const files = ref([])
+const uploading = ref(false)
 
 const searchOrganization = ref('')
 
@@ -150,9 +194,59 @@ watch(
         actual: false,
       }
     )
+    if (newVal?.id) {
+      loadFiles(newVal.id)
+    } else {
+      files.value = []
+    }
   },
   { immediate: true }
 )
+
+async function loadFiles(contractId) {
+  try {
+    files.value = await ContractUtil.getContractFiles(contractId)
+  } catch (e) {
+    console.error('Failed to load files:', e)
+  }
+}
+
+async function handleFileUpload(event) {
+  const file = event.target.files[0]
+  if (!file || !form.id) return
+
+  uploading.value = true
+  try {
+    const uploadedFile = await ContractUtil.uploadFile(form.id, file)
+    files.value.push(uploadedFile)
+    newFile.value = null
+    toast.push('Файл загружен', 'success')
+  } catch (e) {
+    toast.push(e.message, 'error')
+  } finally {
+    uploading.value = false
+  }
+}
+
+function downloadFile(fileId) {
+  ContractUtil.downloadFile(fileId)
+}
+
+async function removeFile(fileId) {
+  try {
+    await ContractUtil.deleteFile(fileId)
+    files.value = files.value.filter((f) => f.id !== fileId)
+    toast.push('Файл удалён', 'success')
+  } catch (e) {
+    toast.push(e.message, 'error')
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
 
 function save() {
   // Normalize date strings as ISO datetime strings ending with T00:00:00

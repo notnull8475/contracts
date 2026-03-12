@@ -7,10 +7,11 @@ mod schema;
 mod services;
 mod utils;
 
-// use simple_logger::SimpleLogger;
 use crate::conf::conf::init_env;
+use crate::services::contract_files;
 use crate::utils::create_admin_user::create_admin_user_if_need;
 use actix_cors::Cors;
+use actix_multipart::Multipart;
 use actix_session::config::{BrowserSession, CookieContentSecurity};
 use actix_session::storage::CookieSessionStore;
 use actix_session::SessionMiddleware;
@@ -35,6 +36,11 @@ fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
 async fn main() -> std::io::Result<()> {
     init_env();
     create_admin_user_if_need();
+    
+    if let Err(e) = contract_files::init_files_dir() {
+        eprintln!("Failed to init files directory: {}", e);
+    }
+    
     println!("DATABASE_URL = {:?}", env::var("DATABASE_URL"));
     // Initialize the logger
     let _log_file = OpenOptions::new()
@@ -84,13 +90,17 @@ async fn main() -> std::io::Result<()> {
                             .route("/list", web::get().to(handlers::type_of_validity_handler::types_list))
                             .route("/get/{type_id}", web::get().to(handlers::type_of_validity_handler::get_type_req))
                     )
-                    .service(
+.service(
                         web::scope("/contracts")
                             .route("/add", web::post().to(handlers::contracts_handler::add_contract_req))
                             .route("/update", web::post().to(handlers::contracts_handler::update_contract_req))
                             .route("/del/{id}", web::delete().to(handlers::contracts_handler::del_contract_req))
                             .route("/list", web::get().to(handlers::contracts_handler::list_contract_req))
-                            .route("/get/{id}", web::get().to(handlers::contracts_handler::get_contract_req)),
+                            .route("/get/{id}", web::get().to(handlers::contracts_handler::get_contract_req))
+                            .route("/files/{contract_id}", web::post().to(handlers::contract_files_handler::upload_file))
+                            .route("/files/{contract_id}", web::get().to(handlers::contract_files_handler::get_contract_files))
+                            .route("/files/download/{file_id}", web::get().to(handlers::contract_files_handler::download_file))
+                            .route("/files/delete/{file_id}", web::delete().to(handlers::contract_files_handler::delete_file))
                     )
                     .service(
                         web::scope("/organizations")

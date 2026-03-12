@@ -58,5 +58,21 @@ export const useRequtil = defineStore('requtil', {
         throw new Error(errorMessage || 'Ошибка при выполнении DELETE-запроса')
       }
     },
+
+    async makeUploadRequest(url, id, file, errorMessage) {
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const response = await axios.post(`${url}${id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        })
+        return response.data
+      } catch (error) {
+        console.error('Ошибка в makeUploadRequest:', error.response?.status, error.message)
+        throw new Error(errorMessage || 'Ошибка при загрузке файла')
+      }
+    },
   },
 })
