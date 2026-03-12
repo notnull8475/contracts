@@ -26,7 +26,7 @@ app.use(vuetify)
 app.config.globalProperties.$axios = apiClient
 
 // Инициализируем состояние авторизации
-const authStore = useAuthStore(pinia)
+const authStore = useAuthStore()
 authStore.initialize()
 
 app.mount('#app')
