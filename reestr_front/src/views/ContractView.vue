@@ -58,6 +58,11 @@ const organizations = ref([]) // ← всегда стартуем с []
 const respPersons = ref([]) // ← всегда стартуем с []
 const validityTypes = ref([])
 /* ═══ утилита доступа к API / хранилищу ══════════════════════════ */
+const contractStore = ContractUtil()
+const organizationStore = OrganizationUtil()
+const responsiblePersonStore = ResponsiblePersonUtil()
+const validityTypesStore = ValidityTypesUtil()
+
 const respPersonsOpt = computed(() =>
   respPersons.value.map((i) => ({
     id: i.id,
@@ -80,10 +85,10 @@ const validityTypesOpt = computed(() =>
 /* ═══ загрузка данных  ═══════════════════════════════════════════ */
 const fetchPage = async () => {
   try {
-    contracts.value = await ContractUtil.getContracts()
-    respPersons.value = await ResponsiblePersonUtil.getResponsiblePersons()
-    organizations.value = await OrganizationUtil.getOrganizations()
-    validityTypes.value = await ValidityTypesUtil.getValidityTypes()
+    contracts.value = await contractStore.getContracts()
+    respPersons.value = await responsiblePersonStore.getResponsiblePersons()
+    organizations.value = await organizationStore.getOrganizations()
+    validityTypes.value = await validityTypesStore.getValidityTypes()
   } catch (e) {
     console.error('Не удалось получить список договоров', e)
   }
@@ -112,11 +117,11 @@ function openTypeForm(type = null) {
 async function saveContract(contract) {
   try {
     if (contract.id) {
-      await ContractUtil.updateContract(contract)
+      await contractStore.updateContract(contract)
       const idx = contracts.value.findIndex((c) => c.id === contract.id)
       if (idx !== -1) contracts.value[idx] = contract
     } else {
-      const created = await ContractUtil.addContract(contract)
+      const created = await contractStore.addContract(contract)
       contracts.value.push(created ?? { ...contract, id: Date.now() })
     }
   } catch (e) {
@@ -126,8 +131,8 @@ async function saveContract(contract) {
 
 async function saveType(type) {
   try {
-    await ValidityTypesUtil.addValidityTypes(type)
-    validityTypes.value = await ValidityTypesUtil.getValidityTypes()
+    await validityTypesStore.addValidityTypes(type)
+    validityTypes.value = await validityTypesStore.getValidityTypes()
   } catch (e) {
     console.error('Ошибка сохранения', e)
   }
@@ -135,8 +140,8 @@ async function saveType(type) {
 
 async function deleteType(id) {
   try {
-    await ValidityTypesUtil.delValidityTypes(id)
-    validityTypes.value = validityTypes.value.filter(t => t.id !== id)
+    await validityTypesStore.delValidityTypes(id)
+    validityTypes.value = validityTypes.value.filter((t) => t.id !== id)
   } catch (e) {
     console.error('Ошибка удаления типа', e)
   }
@@ -144,7 +149,7 @@ async function deleteType(id) {
 
 async function deleteContract(id) {
   try {
-    await ContractUtil.delContract(id)
+    await contractStore.delContract(id)
     contracts.value = contracts.value.filter((c) => c.id !== id)
   } catch (e) {
     console.error('Ошибка удаления', e)

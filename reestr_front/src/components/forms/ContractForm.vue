@@ -122,10 +122,21 @@
 </template>
 
 <script setup>
-import { reactive, watch, computed, ref } from 'vue'
+import { computed, reactive, ref, toRefs, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts'
 import { useToastStore } from '@/store/toast'
 
+const props = defineProps([
+  'modelValue',
+  'contract',
+  'organizationsOpt',
+  'respPersonsOpt',
+  'validityTypesOpt',
+])
+const emit = defineEmits(['update:modelValue', 'save', 'delete'])
+const { modelValue, contract, organizationsOpt, respPersonsOpt, validityTypesOpt } = toRefs(props)
+
+const contractStore = ContractUtil()
 const toast = useToastStore()
 
 const form = reactive({
@@ -150,8 +161,8 @@ const uploading = ref(false)
 const searchOrganization = ref('')
 
 const filteredOrganizations = computed(() => {
-  if (!props.organizationsOpt) return []
-  return props.organizationsOpt.filter((org) =>
+  if (!organizationsOpt.value) return []
+  return organizationsOpt.value.filter((org) =>
     org.short_name_with_opf.toLowerCase().includes(searchOrganization.value?.toLowerCase() || '')
   )
 })
@@ -175,7 +186,7 @@ const formattedDateTo = computed({
 })
 
 watch(
-  () => props.contract,
+  () => contract.value,
   (newVal) => {
     Object.assign(
       form,
@@ -205,19 +216,19 @@ watch(
 
 async function loadFiles(contractId) {
   try {
-    files.value = await ContractUtil.getContractFiles(contractId)
+    files.value = await contractStore.getContractFiles(contractId)
   } catch (e) {
     console.error('Failed to load files:', e)
   }
 }
 
-async function handleFileUpload(event) {
-  const file = event.target.files[0]
+async function handleFileUpload(fileInput) {
+  const file = Array.isArray(fileInput) ? fileInput[0] : fileInput
   if (!file || !form.id) return
 
   uploading.value = true
   try {
-    const uploadedFile = await ContractUtil.uploadFile(form.id, file)
+    const uploadedFile = await contractStore.uploadFile(form.id, file)
     files.value.push(uploadedFile)
     newFile.value = null
     toast.push('Файл загружен', 'success')
@@ -229,12 +240,12 @@ async function handleFileUpload(event) {
 }
 
 function downloadFile(fileId) {
-  ContractUtil.downloadFile(fileId)
+  contractStore.downloadFile(fileId)
 }
 
 async function removeFile(fileId) {
   try {
-    await ContractUtil.deleteFile(fileId)
+    await contractStore.deleteFile(fileId)
     files.value = files.value.filter((f) => f.id !== fileId)
     toast.push('Файл удалён', 'success')
   } catch (e) {
