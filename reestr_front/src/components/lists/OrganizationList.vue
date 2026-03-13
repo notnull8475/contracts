@@ -1,78 +1,75 @@
 <template>
-  <v-table v-if="organizations && organizations.length">
-    <thead>
-    <tr>
-      <th>ID</th>
-      <th>Краткое наименование</th>
-      <th>Полное наименование</th>
-      <th>ИНН</th>
-      <th>ОГРН</th>
-      <th>Фактический адрес</th>
-      <th>Юридический адрес</th>
-      <th>Руководитель</th>
-      <th>ОПФ</th>
-      <th class="text-right">Действия</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr v-for="org in organizations" :key="org.id">
-      <td>{{ org.id }}</td>
-      <td class="text-wrap">{{ org.short_name_with_opf }}</td>
-      <td class="text-wrap" style="max-width:200px;">
-        {{ org.full_name_with_opf || '-' }}
-      </td>
-      <td>{{ org.inn }}</td>
-      <td>{{ org.ogrn || '-' }}</td>
-      <td class="text-wrap" style="max-width:180px;">
-        {{ org.fact_address || '-' }}
-      </td>
-      <td class="text-wrap" style="max-width:180px;">
-        {{ org.legal_address || '-' }}
-      </td>
-      <td class="text-wrap" style="max-width:150px;">
-        <div v-if="org.management_name">
-          <strong>{{ org.management_name }}</strong><br>
-          <small class="text-grey-600">{{ org.management_post }}</small>
-        </div>
-        <span v-else>-</span>
-      </td>
-      <td class="text-wrap">
-        {{ org.opf_short || org.opf_full || '-' }}
-      </td>
-      <td class="text-right">
-        <v-btn icon size="small" @click="$emit('edit', org)" variant="text">
-          <v-icon>mdi-pencil</v-icon>
-        </v-btn>
-      </td>
-    </tr>
-    </tbody>
-  </v-table>
-  <v-alert v-else-if="organizations && !organizations.length" type="info" class="mt-4">
-    Нет данных для отображения
-  </v-alert>
+  <v-data-table
+    class="organization-table"
+    :headers="headers"
+    :items="organizations"
+    :items-per-page="15"
+    density="comfortable"
+    fixed-header
+    height="580"
+  >
+    <template #item.full_name_with_opf="{ item }">
+      <div class="cell-wrap">{{ item.full_name_with_opf || '-' }}</div>
+    </template>
+
+    <template #item.fact_address="{ item }">
+      <div class="cell-wrap">{{ item.fact_address || '-' }}</div>
+    </template>
+
+    <template #item.legal_address="{ item }">
+      <div class="cell-wrap">{{ item.legal_address || '-' }}</div>
+    </template>
+
+    <template #item.management="{ item }">
+      <div v-if="item.management_name" class="cell-wrap">
+        <div class="font-weight-medium">{{ item.management_name }}</div>
+        <div class="text-caption text-medium-emphasis">{{ item.management_post }}</div>
+      </div>
+      <span v-else>-</span>
+    </template>
+
+    <template #item.opf="{ item }">
+      {{ item.opf_short || item.opf_full || '-' }}
+    </template>
+
+    <template #item.actions="{ item }">
+      <v-btn icon="mdi-pencil" size="small" variant="text" @click="$emit('edit', item)" />
+    </template>
+  </v-data-table>
 </template>
 
 <script setup>
 defineProps({
   organizations: {
     type: Array,
-    default: () => []
-  }
+    default: () => [],
+  },
 })
+
 defineEmits(['edit'])
+
+const headers = [
+  { title: 'ID', key: 'id', sortable: true },
+  { title: 'Краткое наименование', key: 'short_name_with_opf', sortable: true },
+  { title: 'Полное наименование', key: 'full_name_with_opf', sortable: true },
+  { title: 'ИНН', key: 'inn', sortable: true },
+  { title: 'ОГРН', key: 'ogrn', sortable: true },
+  { title: 'Факт. адрес', key: 'fact_address', sortable: false },
+  { title: 'Юр. адрес', key: 'legal_address', sortable: false },
+  { title: 'Руководитель', key: 'management', sortable: false },
+  { title: 'ОПФ', key: 'opf', sortable: true },
+  { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
+]
 </script>
 
 <style scoped>
-.text-wrap {
-  word-wrap: break-word;
-  word-break: break-word;
+.cell-wrap {
+  max-width: 260px;
   white-space: normal;
+  word-break: break-word;
 }
-.v-table td {
-  vertical-align: top;
-  padding: 12px 8px;
-}
-.text-grey-600 {
-  color: rgb(107, 114, 128);
+
+.organization-table :deep(.v-data-table-header__content) {
+  font-weight: 600;
 }
 </style>

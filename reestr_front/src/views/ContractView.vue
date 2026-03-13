@@ -20,6 +20,27 @@
         <v-chip color="success" variant="tonal">Актуальные: {{ activeContracts }}</v-chip>
         <v-chip color="warning" variant="tonal">Истекают (30 дн): {{ expiringContracts }}</v-chip>
       </div>
+
+      <div class="d-flex flex-wrap ga-2 mt-3">
+        <v-select
+          v-model="statusFilter"
+          :items="statusFilterOptions"
+          label="Статус"
+          density="comfortable"
+          hide-details
+          variant="outlined"
+          style="max-width: 220px"
+        />
+        <v-select
+          v-model="expiryFilter"
+          :items="expiryFilterOptions"
+          label="Срок действия"
+          density="comfortable"
+          hide-details
+          variant="outlined"
+          style="max-width: 260px"
+        />
+      </div>
     </v-card-text>
   </v-card>
 
@@ -98,11 +119,26 @@ const organizations = ref([])
 const respPersons = ref([])
 const validityTypes = ref([])
 const loading = ref(false)
+const statusFilter = ref('all')
+const expiryFilter = ref('all')
 
 const contractStore = ContractUtil()
 const organizationStore = OrganizationUtil()
 const responsiblePersonStore = ResponsiblePersonUtil()
 const validityTypesStore = ValidityTypesUtil()
+
+const statusFilterOptions = [
+  { title: 'Все', value: 'all' },
+  { title: 'Только актуальные', value: 'active' },
+  { title: 'Только неактуальные', value: 'inactive' },
+]
+
+const expiryFilterOptions = [
+  { title: 'Любой срок', value: 'all' },
+  { title: 'Истекает в 30 дней', value: '30' },
+  { title: 'Истекает в 60 дней', value: '60' },
+  { title: 'Уже истек', value: 'expired' },
+]
 
 const respPersonsOpt = computed(() =>
   respPersons.value.map((i) => ({
@@ -127,9 +163,32 @@ const validityTypesOpt = computed(() =>
 
 const filteredContracts = computed(() => {
   const rows = Array.isArray(contracts.value) ? contracts.value : []
-  if (!search.value) return rows
   const term = search.value.toLowerCase()
-  return rows.filter((c) => c.number && c.number.toLowerCase().includes(term))
+  const today = new Date()
+
+  return rows.filter((c) => {
+    const numberMatch = !term || (c.number && c.number.toLowerCase().includes(term))
+
+    const statusMatch =
+      statusFilter.value === 'all' ||
+      (statusFilter.value === 'active' && c.actual) ||
+      (statusFilter.value === 'inactive' && !c.actual)
+
+    let expiryMatch = true
+    if (expiryFilter.value !== 'all') {
+      if (!c.date_to) {
+        expiryMatch = false
+      } else {
+        const endDate = new Date(c.date_to)
+        const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
+        if (expiryFilter.value === 'expired') expiryMatch = daysLeft < 0
+        if (expiryFilter.value === '30') expiryMatch = daysLeft >= 0 && daysLeft <= 30
+        if (expiryFilter.value === '60') expiryMatch = daysLeft >= 0 && daysLeft <= 60
+      }
+    }
+
+    return numberMatch && statusMatch && expiryMatch
+  })
 })
 
 const activeContracts = computed(() => contracts.value.filter((c) => c.actual).length)
