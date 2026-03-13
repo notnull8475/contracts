@@ -1,50 +1,59 @@
 <template>
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-semibold">Организации</h2>
-      <v-btn color="primary" @click="openForm()">Добавить организацию</v-btn>
-    </div>
+  <v-card rounded="lg" elevation="1" class="mb-4">
+    <v-card-text class="py-5 px-5 d-flex flex-wrap justify-space-between align-center ga-3">
+      <div>
+        <h1 class="text-h5 font-weight-bold mb-1">Реестр организаций</h1>
+        <p class="text-body-2 text-medium-emphasis">Карточки контрагентов с реквизитами и адресами</p>
+      </div>
+      <v-btn color="primary" prepend-icon="mdi-plus" @click="openForm()">Новая организация</v-btn>
+    </v-card-text>
+  </v-card>
 
-    <v-text-field
-      v-model="search"
-      placeholder="Поиск по организациям"
-      append-inner-icon="mdi-magnify"
-      class="mb-4"
-    />
+  <v-card rounded="lg" elevation="1">
+    <v-card-text>
+      <div class="d-flex flex-wrap ga-2 mb-3">
+        <v-chip color="primary" variant="tonal">Всего: {{ organizations.length }}</v-chip>
+        <v-chip color="info" variant="tonal">С ОГРН: {{ withOgrnCount }}</v-chip>
+      </div>
 
-    <!-- Добавляем проверку на загрузку -->
-    <v-progress-linear
-      v-if="loading"
-      indeterminate
-      color="primary"
-      class="mb-4"
-    />
+      <v-text-field
+        v-model="search"
+        label="Поиск по названию или ИНН"
+        prepend-inner-icon="mdi-magnify"
+        variant="outlined"
+        density="comfortable"
+        hide-details
+        clearable
+      />
+    </v-card-text>
 
-    <OrganizationList
-      v-else
-      :organizations="filteredOrganizations"
-      @edit="openForm"
-    />
+    <v-divider />
+    <v-progress-linear v-if="loading" indeterminate color="primary" />
 
-    <v-alert
-      v-if="!loading && (!filteredOrganizations || !filteredOrganizations.length)"
-      type="info"
-      class="mt-4"
-    >
-      {{ organizations && organizations.length ? 'Организации по вашему запросу не найдены' : 'Организации не найдены' }}
-    </v-alert>
+    <v-card-text v-else>
+      <v-alert
+        v-if="!filteredOrganizations.length"
+        type="info"
+        variant="tonal"
+        icon="mdi-information-outline"
+      >
+        По текущему фильтру организации не найдены.
+      </v-alert>
 
-    <organization-form
-      v-model="dialog"
-      :organization="selectedOrganization"
-      @save="saveOrganization"
-      @delete="deleteOrganization"
-    />
-  </div>
+      <OrganizationList v-else :organizations="filteredOrganizations" @edit="openForm" />
+    </v-card-text>
+  </v-card>
+
+  <organization-form
+    v-model="dialog"
+    :organization="selectedOrganization"
+    @save="saveOrganization"
+    @delete="deleteOrganization"
+  />
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import OrganizationForm from '@/components/forms/OrganizationForm.vue'
 import { OrganizationUtil } from '@/store/organizations.js'
 import { useNotify } from '@/composables/useNotify.js'
@@ -54,30 +63,22 @@ const search = ref('')
 const dialog = ref(false)
 const selectedOrganization = ref(null)
 const organizations = ref([])
-const loading = ref(false) // Добавляем флаг загрузки
+const loading = ref(false)
 
 const { notifySuccess, notifyError } = useNotify()
-const organizationUtil = OrganizationUtil()
+const organizationStore = OrganizationUtil()
+
+const withOgrnCount = computed(() => organizations.value.filter((org) => Boolean(org.ogrn)).length)
 
 const fetchPage = async () => {
   loading.value = true
   try {
-    const response = await organizationUtil.getOrganizations()
-    console.log('Полный ответ от API:', response)
-
-    // В зависимости от структуры ответа API
-    if (Array.isArray(response)) {
-      organizations.value = response
-    } else if (response && Array.isArray(response.data)) {
-      organizations.value = response.data
-    } else if (response && response.data && Array.isArray(response.data.data)) {
-      organizations.value = response.data.data
-    } else {
-      console.warn('Неожиданная структура ответа:', response)
-      organizations.value = []
-    }
-
-    console.log('Загруженные организации:', organizations.value)
+    const response = await organizationStore.getOrganizations()
+    organizations.value = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.data)
+        ? response.data
+        : []
   } catch (e) {
     console.error('Не удалось получить список организаций', e)
     notifyError('Ошибка загрузки', 'Не удалось загрузить список организаций')
@@ -90,19 +91,15 @@ const fetchPage = async () => {
 onMounted(fetchPage)
 
 const filteredOrganizations = computed(() => {
-  // Защита от undefined
-  if (!organizations.value || !Array.isArray(organizations.value)) {
-    return []
-  }
+  if (!Array.isArray(organizations.value)) return []
+  const term = search.value.trim().toLowerCase()
+  if (!term) return organizations.value
 
-  if (!search.value.trim()) {
-    return organizations.value
-  }
-
-  const searchTerm = search.value.toLowerCase()
-  return organizations.value.filter(o =>
-    o.short_name_with_opf && o.short_name_with_opf.toLowerCase().includes(searchTerm)
-  )
+  return organizations.value.filter((org) => {
+    const shortName = (org.short_name_with_opf || '').toLowerCase()
+    const inn = String(org.inn || '')
+    return shortName.includes(term) || inn.includes(term)
+  })
 })
 
 function openForm(org = null) {
@@ -113,12 +110,12 @@ function openForm(org = null) {
 async function saveOrganization(org) {
   try {
     if (org.id) {
-      await organizationUtil.updateOrganization(org)
-      const idx = organizations.value.findIndex(o => o.id === org.id)
+      await organizationStore.updateOrganization(org)
+      const idx = organizations.value.findIndex((item) => item.id === org.id)
       if (idx !== -1) organizations.value[idx] = org
       notifySuccess('Организация изменена')
     } else {
-      const created = await organizationUtil.addOrganization(org)
+      const created = await organizationStore.addOrganization(org)
       organizations.value.push(created)
       notifySuccess('Организация добавлена')
     }
@@ -130,14 +127,12 @@ async function saveOrganization(org) {
 }
 
 async function deleteOrganization(id) {
-  if (!confirm('Вы уверены, что хотите удалить эту организацию?')) {
-    return
-  }
+  if (!confirm('Вы уверены, что хотите удалить эту организацию?')) return
 
   try {
-    await organizationUtil.delOrganization(id)
-    organizations.value = organizations.value.filter(o => o.id !== id)
-    notifySuccess(`Организация удалена`)
+    await organizationStore.delOrganization(id)
+    organizations.value = organizations.value.filter((org) => org.id !== id)
+    notifySuccess('Организация удалена')
   } catch (e) {
     notifyError('Ошибка удаления', e.message)
     console.error('Ошибка удаления', e)

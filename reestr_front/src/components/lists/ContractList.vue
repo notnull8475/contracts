@@ -1,5 +1,5 @@
 <template>
-  <v-table>
+  <v-table density="comfortable" fixed-header height="560px">
     <thead>
     <tr>
       <!-- <th>ID</th> -->
@@ -45,7 +45,7 @@ const props = defineProps(['contracts', 'respPersonsOpt', 'organizationsOpt', 'v
 const orgidToName = computed(() => {
   const map = {}
   props.organizationsOpt?.forEach(i => {
-    map[i.id] = i.name
+    map[i.id] = i.short_name_with_opf
   })
   return map
 })

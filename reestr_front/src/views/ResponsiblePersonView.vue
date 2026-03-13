@@ -1,47 +1,82 @@
 <template>
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-semibold">Ответственные лица</h2>
-      <v-btn color="primary" @click="openForm()">Добавить ответственное лицо</v-btn>
-    </div>
+  <v-card rounded="lg" elevation="1" class="mb-4">
+    <v-card-text class="py-5 px-5 d-flex flex-wrap justify-space-between align-center ga-3">
+      <div>
+        <h1 class="text-h5 font-weight-bold mb-1">Ответственные лица</h1>
+        <p class="text-body-2 text-medium-emphasis">Сотрудники, закрепленные за договорами</p>
+      </div>
+      <v-btn color="primary" prepend-icon="mdi-account-plus" @click="openForm()">
+        Добавить ответственного
+      </v-btn>
+    </v-card-text>
+  </v-card>
 
-    <v-text-field
-      v-model="search"
-      placeholder="Поиск по ответственным лицам"
-      append-inner-icon="mdi-magnify"
-      class="mb-4"
-    />
+  <v-card rounded="lg" elevation="1">
+    <v-card-text>
+      <div class="d-flex flex-wrap ga-2 mb-3">
+        <v-chip color="primary" variant="tonal">Всего: {{ responsiblePersons.length }}</v-chip>
+        <v-chip color="info" variant="tonal">С привязкой к пользователю: {{ linkedUsers }}</v-chip>
+      </div>
 
-    <responsible-person-list
-      :responsiblePersons="filteredResponsiblePersons"
-      :userOptions="userOptions"
-      @edit="openForm"
-    />
+      <v-text-field
+        v-model="search"
+        label="Поиск по фамилии"
+        prepend-inner-icon="mdi-magnify"
+        variant="outlined"
+        density="comfortable"
+        hide-details
+        clearable
+      />
+    </v-card-text>
 
-    <responsible-person-form
-      v-model="dialog"
-      :responsiblePerson="selectedResponsiblePerson"
-      :userOptions="userOptions"
-      @save="saveResponsiblePerson"
-      @delete="deleteResponsiblePerson"
-    />
-  </div>
+    <v-divider />
+
+    <v-progress-linear v-if="loading" indeterminate color="primary" />
+
+    <v-card-text v-else>
+      <v-alert
+        v-if="!filteredResponsiblePersons.length"
+        type="info"
+        variant="tonal"
+        icon="mdi-information-outline"
+      >
+        По текущему фильтру ответственные не найдены.
+      </v-alert>
+
+      <responsible-person-list
+        v-else
+        :responsiblePersons="filteredResponsiblePersons"
+        :userOptions="userOptions"
+        @edit="openForm"
+      />
+    </v-card-text>
+  </v-card>
+
+  <responsible-person-form
+    v-model="dialog"
+    :responsiblePerson="selectedResponsiblePerson"
+    :userOptions="userOptions"
+    @save="saveResponsiblePerson"
+    @delete="deleteResponsiblePerson"
+  />
 </template>
-<script setup async>
-import { computed, onMounted, ref, watch } from 'vue'
+
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ResponsiblePersonList from '@/components/lists/ResponsiblePersonList.vue'
 import ResponsiblePersonForm from '@/components/forms/ResponsiblePersonForm.vue'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import { UserUtil } from '@/store/users.js'
 
-/* ═══ реактивные переменные ══════════════════════════════════════ */
 const search = ref('')
 const dialog = ref(false)
 const selectedResponsiblePerson = ref(null)
-const responsiblePersons = ref([]) // ← всегда стартуем с []
+const responsiblePersons = ref([])
 const users = ref([])
-/* ═══ утилита доступа к API / хранилищу ══════════════════════════ */
-const responsiblePersonUtil = ResponsiblePersonUtil()
+const loading = ref(false)
+
+const responsiblePersonStore = ResponsiblePersonUtil()
+const userStore = UserUtil()
 
 const userOptions = computed(() =>
   users.value.map((user) => ({
@@ -49,25 +84,34 @@ const userOptions = computed(() =>
     username: user.username,
   })),
 )
-/* ═══ загрузка данных  ═══════════════════════════════════════════ */
+
+const linkedUsers = computed(() => responsiblePersons.value.filter((p) => p.user_id).length)
+
 const fetchPage = async () => {
+  loading.value = true
   try {
-    responsiblePersons.value = await responsiblePersonUtil.getResponsiblePersons()
-    users.value = await UserUtil().getAllUsers()
+    const [personRows, userRows] = await Promise.all([
+      responsiblePersonStore.getResponsiblePersons(),
+      userStore.getAllUsers(),
+    ])
+    responsiblePersons.value = Array.isArray(personRows) ? personRows : []
+    users.value = Array.isArray(userRows) ? userRows : []
   } catch (e) {
     console.error('Не удалось получить список ответственных лиц', e)
+  } finally {
+    loading.value = false
   }
 }
+
 onMounted(fetchPage)
 
-/* ═══ фильтр по поиску  ═════════════════════════════════════════ */
-const filteredResponsiblePersons = computed(() =>
-  (Array.isArray(responsiblePersons.value) ? responsiblePersons.value : []).filter(
-    (p) => p.lastname && p.lastname.toLowerCase().includes(search.value.toLowerCase()),
-  ),
-)
+const filteredResponsiblePersons = computed(() => {
+  const rows = Array.isArray(responsiblePersons.value) ? responsiblePersons.value : []
+  if (!search.value) return rows
+  const term = search.value.toLowerCase()
+  return rows.filter((person) => person.lastname && person.lastname.toLowerCase().includes(term))
+})
 
-/* ═══ формы add / edit / delete  ════════════════════════════════ */
 function openForm(person = null) {
   selectedResponsiblePerson.value = person ? { ...person } : null
   dialog.value = true
@@ -76,13 +120,14 @@ function openForm(person = null) {
 async function saveResponsiblePerson(person) {
   try {
     if (person.id) {
-      await responsiblePersonUtil.updateResponsiblePerson(person)
+      await responsiblePersonStore.updateResponsiblePerson(person)
       const idx = responsiblePersons.value.findIndex((p) => p.id === person.id)
       if (idx !== -1) responsiblePersons.value[idx] = person
-    } else {
-      const created = await responsiblePersonUtil.addResponsiblePerson(person)
-      responsiblePersons.value.push(created ?? { ...person, id: Date.now() })
+      return
     }
+
+    const created = await responsiblePersonStore.addResponsiblePerson(person)
+    responsiblePersons.value.push(created ?? { ...person, id: Date.now() })
   } catch (e) {
     console.error('Ошибка сохранения', e)
   }
@@ -90,7 +135,7 @@ async function saveResponsiblePerson(person) {
 
 async function deleteResponsiblePerson(id) {
   try {
-    await responsiblePersonUtil.delResponsiblePerson(id)
+    await responsiblePersonStore.delResponsiblePerson(id)
     responsiblePersons.value = responsiblePersons.value.filter((p) => p.id !== id)
   } catch (e) {
     console.error('Ошибка удаления', e)

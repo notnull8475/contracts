@@ -2,14 +2,12 @@
   <v-app>
     <Header />
 
-    <!-- Динамическое содержимое страниц -->
-    <v-main class="bg-gray-100">
-      <v-container>
+    <v-main class="registry-main">
+      <v-container class="py-6" max-width="1400">
         <router-view />
       </v-container>
     </v-main>
 
-    <!-- Ваш Footer -->
     <Footer />
   </v-app>
 </template>
@@ -17,3 +15,10 @@
 import Header from '@/components/Header.vue'
 import Footer from '@/components/Footer.vue'
 </script>
+
+<style scoped>
+.registry-main {
+  background: linear-gradient(180deg, #f4f8fb 0%, #eef3f7 60%, #e9eff4 100%);
+  min-height: calc(100vh - 64px);
+}
+</style>

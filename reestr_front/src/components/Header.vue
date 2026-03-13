@@ -1,20 +1,36 @@
 <template>
-  <v-app-bar app color="#0F7CB7FF" dark>
-    <v-img src="@/assets/logo.png" max-height="40" max-width="120" contain class="ml-2"></v-img>
-    <v-toolbar-title>РЕЕСТР ДОГОВОРОВ</v-toolbar-title>
+  <v-app-bar color="#114b5f" density="comfortable" elevation="2">
+    <v-img src="@/assets/logo.png" max-height="34" max-width="96" contain class="mr-3 ml-2" />
+    <v-toolbar-title class="font-weight-bold text-uppercase">Реестр договоров</v-toolbar-title>
 
-    <v-spacer></v-spacer>
+    <v-spacer />
 
-    <v-toolbar-items>
-      <v-btn v-if="role !== null" variant="text" to="/contracts">Договора</v-btn>
-      <v-btn v-if="role !== null" variant="text" to="/responsibleperson">Ответственные</v-btn>
-      <v-btn v-if="role !== null" variant="text" to="/organizations">Организации</v-btn>
+    <div v-if="isAuthorized" class="d-none d-md-flex ga-2 mr-4">
+      <v-btn variant="text" :to="'/contracts'" prepend-icon="mdi-file-document-multiple">
+        Договоры
+      </v-btn>
+      <v-btn variant="text" :to="'/organizations'" prepend-icon="mdi-domain">
+        Организации
+      </v-btn>
+      <v-btn variant="text" :to="'/responsibleperson'" prepend-icon="mdi-account-tie">
+        Ответственные
+      </v-btn>
+      <v-btn
+        v-if="role === 'admin'"
+        variant="text"
+        :to="'/admin/users'"
+        prepend-icon="mdi-account-cog"
+      >
+        Пользователи
+      </v-btn>
+    </div>
 
-      <!--      <v-btn v-if="role === 'admin'" variant="text" to="/admin">Админка</v-btn>-->
-      <v-btn v-if="role === 'admin'" variant="text" to="/admin/users">Пользователи</v-btn>
-      <v-btn v-if="role === null" variant="text" to="/login">Войти</v-btn>
-      <v-btn v-if="role !== null" variant="text" @click="handleLogout">Выйти</v-btn>
-    </v-toolbar-items>
+    <v-chip v-if="isAuthorized" size="small" color="#1a759f" class="mr-3">
+      {{ authStore.user?.username || authStore.user?.login || 'Пользователь' }}
+    </v-chip>
+
+    <v-btn v-if="!isAuthorized" variant="tonal" :to="'/login'" prepend-icon="mdi-login">Войти</v-btn>
+    <v-btn v-else variant="tonal" prepend-icon="mdi-logout" @click="handleLogout">Выйти</v-btn>
   </v-app-bar>
 </template>
 
@@ -26,14 +42,9 @@ import { useAuthStore } from '@/store/auth'
 const authStore = useAuthStore()
 const router = useRouter()
 
-// Реактивное вычисляемое свойство роли
-const role = computed(() => {
-  if (authStore.token) {
-    return authStore.user.role
-  } else return null
-})
+const role = computed(() => authStore.user?.role || null)
+const isAuthorized = computed(() => Boolean(authStore.token))
 
-// Выход пользователя
 const handleLogout = async () => {
   try {
     await authStore.logout()
@@ -43,9 +54,3 @@ const handleLogout = async () => {
   }
 }
 </script>
-
-<style scoped>
-.color__green {
-  color: #0f7cb7;
-}
-</style>
