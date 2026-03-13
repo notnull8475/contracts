@@ -53,7 +53,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import OrganizationForm from '@/components/forms/OrganizationForm.vue'
 import { OrganizationUtil } from '@/store/organizations.js'
 import { useNotify } from '@/composables/useNotify.js'
@@ -67,6 +68,8 @@ const loading = ref(false)
 
 const { notifySuccess, notifyError } = useNotify()
 const organizationStore = OrganizationUtil()
+const route = useRoute()
+const router = useRouter()
 
 const withOgrnCount = computed(() => organizations.value.filter((org) => Boolean(org.ogrn)).length)
 
@@ -89,6 +92,19 @@ const fetchPage = async () => {
 }
 
 onMounted(fetchPage)
+
+watch(
+  () => route.query.new,
+  async (value) => {
+    if (value === '1') {
+      openForm()
+      const nextQuery = { ...route.query }
+      delete nextQuery.new
+      await router.replace({ query: nextQuery })
+    }
+  },
+  { immediate: true },
+)
 
 const filteredOrganizations = computed(() => {
   if (!Array.isArray(organizations.value)) return []

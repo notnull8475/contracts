@@ -62,7 +62,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ResponsiblePersonList from '@/components/lists/ResponsiblePersonList.vue'
 import ResponsiblePersonForm from '@/components/forms/ResponsiblePersonForm.vue'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
@@ -77,6 +78,8 @@ const loading = ref(false)
 
 const responsiblePersonStore = ResponsiblePersonUtil()
 const userStore = UserUtil()
+const route = useRoute()
+const router = useRouter()
 
 const userOptions = computed(() =>
   users.value.map((user) => ({
@@ -104,6 +107,19 @@ const fetchPage = async () => {
 }
 
 onMounted(fetchPage)
+
+watch(
+  () => route.query.new,
+  async (value) => {
+    if (value === '1') {
+      openForm()
+      const nextQuery = { ...route.query }
+      delete nextQuery.new
+      await router.replace({ query: nextQuery })
+    }
+  },
+  { immediate: true },
+)
 
 const filteredResponsiblePersons = computed(() => {
   const rows = Array.isArray(responsiblePersons.value) ? responsiblePersons.value : []

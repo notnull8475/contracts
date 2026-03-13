@@ -1,26 +1,22 @@
 <template>
-  <v-dialog
-    :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
-    max-width="600"
-  >
-    <v-card>
+  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="900">
+    <v-card rounded="lg">
       <v-card-title>{{ form.id ? 'Редактировать договор' : 'Добавить договор' }}</v-card-title>
       <v-card-text>
         <!-- ID -->
-        <v-text-field v-model="form.id" label="ID" disabled />
+        <v-text-field v-model="form.id" label="ID" disabled variant="outlined" density="comfortable" />
 
         <!-- Номер договора -->
-        <v-text-field v-model="form.number" label="Номер договора" />
+        <v-text-field v-model="form.number" label="Номер договора" variant="outlined" density="comfortable" />
 
         <!-- Дата начала договора -->
-        <v-text-field v-model="formattedDateFrom" label="Дата начала договора" type="date" />
+        <v-text-field v-model="formattedDateFrom" label="Дата начала договора" type="date" variant="outlined" density="comfortable" />
 
         <!-- Дата окончания договора -->
-        <v-text-field v-model="formattedDateTo" label="Дата окончания договора" type="date" />
+        <v-text-field v-model="formattedDateTo" label="Дата окончания договора" type="date" variant="outlined" density="comfortable" />
 
         <!-- Срок действия договора (месяцы) -->
-        <v-text-field v-model.number="form.contract_period" label="Срок действия (месяцев)" type="number" min="0" />
+        <v-text-field v-model.number="form.contract_period" label="Срок действия (месяцев)" type="number" min="0" variant="outlined" density="comfortable" />
 
         <!-- Выбор организации -->
         <v-autocomplete
@@ -33,6 +29,8 @@
           placeholder="Введите название организации"
           clearable
           hide-no-data
+          variant="outlined"
+          density="comfortable"
           :menu-props="{ maxHeight: '200px' }"
         />
 
@@ -43,6 +41,8 @@
           label="Тип договора"
           item-title="name"
           item-value="id"
+          variant="outlined"
+          density="comfortable"
         />
 
         <!-- Ответственное лицо -->
@@ -52,16 +52,18 @@
           :items="respPersonsOpt"
           item-title="lastname"
           item-value="id"
+          variant="outlined"
+          density="comfortable"
         />
 
         <!-- Адрес -->
-        <v-text-field v-model="form.address" label="Адрес" />
+        <v-text-field v-model="form.address" label="Адрес" variant="outlined" density="comfortable" />
 
         <!-- Дополнительное соглашение -->
-        <v-text-field v-model="form.additional_agreement" label="Дополнительное соглашение" />
+        <v-text-field v-model="form.additional_agreement" label="Дополнительное соглашение" variant="outlined" density="comfortable" />
 
         <!-- Комментарий -->
-        <v-textarea v-model="form.comment" label="Комментарий" />
+        <v-textarea v-model="form.comment" label="Комментарий" variant="outlined" density="comfortable" rows="3" auto-grow />
 
         <!-- Активен -->
         <v-checkbox v-model="form.actual" label="Актуален" />
@@ -77,6 +79,9 @@
             accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
             prepend-icon="mdi-paperclip"
             :loading="uploading"
+            variant="outlined"
+            density="comfortable"
+            show-size
           />
 
           <v-btn

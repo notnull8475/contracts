@@ -1,16 +1,12 @@
 <template>
-  <v-dialog
-    :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
-    max-width="800"
-  >
-    <v-card>
+  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="960">
+    <v-card rounded="lg">
       <v-card-title>{{
           organization?.id ? 'Редактировать организацию' : 'Добавить организацию'
         }}</v-card-title>
       <v-card-text>
         <!-- ID -->
-        <v-text-field v-model="form.id" label="ID" disabled />
+        <v-text-field v-model="form.id" label="ID" disabled variant="outlined" density="comfortable" />
 
         <!-- ИНН с кнопкой автозаполнения -->
         <div class="d-flex align-center gap-2">
@@ -21,6 +17,8 @@
             :error="!!errors.inn"
             :error-messages="errors.inn"
             class="flex-grow-1"
+            variant="outlined"
+            density="comfortable"
           />
           <v-btn
             color="primary"
@@ -39,34 +37,33 @@
           label="Краткое наименование с ОПФ"
           :error="!!errors.short_name_with_opf"
           :error-messages="errors.short_name_with_opf"
+          variant="outlined"
+          density="comfortable"
         />
 
         <!-- Полное наименование с ОПФ -->
-        <v-text-field
-          v-model="form.full_name_with_opf"
-          label="Полное наименование с ОПФ"
-        />
+        <v-text-field v-model="form.full_name_with_opf" label="Полное наименование с ОПФ" variant="outlined" density="comfortable" />
 
         <!-- Фактический адрес -->
-        <v-text-field v-model="form.fact_address" label="Фактический адрес" />
+        <v-text-field v-model="form.fact_address" label="Фактический адрес" variant="outlined" density="comfortable" />
 
         <!-- Юридический адрес -->
-        <v-text-field v-model="form.legal_address" label="Юридический адрес" />
+        <v-text-field v-model="form.legal_address" label="Юридический адрес" variant="outlined" density="comfortable" />
 
         <!-- ОГРН -->
-        <v-text-field v-model="form.ogrn" label="ОГРН" />
+        <v-text-field v-model="form.ogrn" label="ОГРН" variant="outlined" density="comfortable" />
 
         <!-- Должность руководителя -->
-        <v-text-field v-model="form.management_post" label="Должность руководителя" />
+        <v-text-field v-model="form.management_post" label="Должность руководителя" variant="outlined" density="comfortable" />
 
         <!-- ФИО руководителя -->
-        <v-text-field v-model="form.management_name" label="ФИО руководителя" />
+        <v-text-field v-model="form.management_name" label="ФИО руководителя" variant="outlined" density="comfortable" />
 
         <!-- Полная ОПФ -->
-        <v-text-field v-model="form.opf_full" label="Организационно-правовая форма (полная)" />
+        <v-text-field v-model="form.opf_full" label="Организационно-правовая форма (полная)" variant="outlined" density="comfortable" />
 
         <!-- Краткая ОПФ -->
-        <v-text-field v-model="form.opf_short" label="Организационно-правовая форма (краткая)" />
+        <v-text-field v-model="form.opf_short" label="Организационно-правовая форма (краткая)" variant="outlined" density="comfortable" />
       </v-card-text>
       <v-card-actions>
         <v-btn v-if="organization?.id" color="error" @click="deleteItem">Удалить</v-btn>

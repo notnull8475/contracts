@@ -101,7 +101,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContractList from '@/components/lists/ContractList.vue'
 import ContractForm from '@/components/forms/ContractForm.vue'
 import { ContractUtil } from '@/store/contracts.js'
@@ -126,6 +127,8 @@ const contractStore = ContractUtil()
 const organizationStore = OrganizationUtil()
 const responsiblePersonStore = ResponsiblePersonUtil()
 const validityTypesStore = ValidityTypesUtil()
+const route = useRoute()
+const router = useRouter()
 
 const statusFilterOptions = [
   { title: 'Все', value: 'all' },
@@ -226,6 +229,19 @@ const fetchPage = async () => {
 }
 
 onMounted(fetchPage)
+
+watch(
+  () => route.query.new,
+  async (value) => {
+    if (value === '1') {
+      openForm()
+      const nextQuery = { ...route.query }
+      delete nextQuery.new
+      await router.replace({ query: nextQuery })
+    }
+  },
+  { immediate: true },
+)
 
 function openForm(contract = null) {
   selectedContract.value = contract ? { ...contract } : null

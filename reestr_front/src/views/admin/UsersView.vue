@@ -46,7 +46,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import UserList from '@/components/admin/UserList.vue'
 import UserForm from '@/components/admin/UserForm.vue'
 import { UserUtil } from '@/store/users.js'
@@ -58,6 +59,8 @@ const users = ref([])
 const loading = ref(false)
 
 const userStore = UserUtil()
+const route = useRoute()
+const router = useRouter()
 
 const adminCount = computed(() => users.value.filter((u) => u.role === 'admin').length)
 
@@ -73,6 +76,19 @@ const filteredUsers = computed(() => {
 })
 
 onMounted(fetchPage)
+
+watch(
+  () => route.query.new,
+  async (value) => {
+    if (value === '1') {
+      openForm()
+      const nextQuery = { ...route.query }
+      delete nextQuery.new
+      await router.replace({ query: nextQuery })
+    }
+  },
+  { immediate: true },
+)
 
 async function fetchPage() {
   loading.value = true
