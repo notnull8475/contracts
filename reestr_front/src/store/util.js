@@ -63,11 +63,7 @@ export const useRequtil = defineStore('requtil', {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        const response = await axios.post(`${url}${id}`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        })
+        const response = await axios.post(`${url}${id}`, formData)
         return response.data
       } catch (error) {
         console.error('Ошибка в makeUploadRequest:', error.response?.status, error.message)

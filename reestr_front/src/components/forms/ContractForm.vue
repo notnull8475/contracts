@@ -76,9 +76,19 @@
             label="Выберите файл"
             accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
             prepend-icon="mdi-paperclip"
-            @change="handleFileUpload"
             :loading="uploading"
           />
+
+          <v-btn
+            class="mt-2"
+            color="primary"
+            variant="flat"
+            :disabled="!newFile || uploading"
+            :loading="uploading"
+            @click="handleFileUpload"
+          >
+            Загрузить файл
+          </v-btn>
 
           <v-list density="compact" class="mt-2">
             <v-list-item
@@ -222,8 +232,19 @@ async function loadFiles(contractId) {
   }
 }
 
-async function handleFileUpload(fileInput) {
-  const file = Array.isArray(fileInput) ? fileInput[0] : fileInput
+async function handleFileUpload(fileInput = newFile.value) {
+  let file = null
+
+  if (fileInput instanceof File) {
+    file = fileInput
+  } else if (Array.isArray(fileInput)) {
+    file = fileInput[0] || null
+  } else if (fileInput?.target?.files?.length) {
+    file = fileInput.target.files[0]
+  } else if (fileInput?.length && fileInput[0] instanceof File) {
+    file = fileInput[0]
+  }
+
   if (!file || !form.id) return
 
   uploading.value = true
