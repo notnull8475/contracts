@@ -1,31 +1,33 @@
 <template>
-  <v-table>
-    <thead>
-      <tr>
-        <th>Имя</th>
-        <th>Логин</th>
-        <th>Роли</th>
-        <th class="text-right">Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="user in users" :key="user.id">
-        <td>{{ user.username }}</td>
-        <td>{{ user.login }}</td>
-        <td>{{ user.role }}</td>
-        <td class="text-right">
-          <v-btn icon @click="$emit('edit', user)">
-            <v-icon>mdi-pencil</v-icon>
-          </v-btn>
-          <v-btn icon color="error" @click="$emit('delete', user.id)">
-            <v-icon icon="mdi-delete" />
-          </v-btn>
-        </td>
-      </tr>
-    </tbody>
-  </v-table>
+  <v-data-table
+    :headers="headers"
+    :items="users"
+    :items-per-page="15"
+    density="comfortable"
+    fixed-header
+    height="560"
+  >
+    <template #item.role="{ item }">
+      <v-chip size="small" :color="item.role === 'admin' ? 'primary' : 'default'" variant="tonal">
+        {{ item.role }}
+      </v-chip>
+    </template>
+
+    <template #item.actions="{ item }">
+      <v-btn icon="mdi-pencil" size="small" variant="text" @click="$emit('edit', item)" />
+      <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="$emit('delete', item.id)" />
+    </template>
+  </v-data-table>
 </template>
 
 <script setup>
 defineProps(['users'])
+defineEmits(['edit', 'delete'])
+
+const headers = [
+  { title: 'Имя', key: 'username', sortable: true },
+  { title: 'Логин', key: 'login', sortable: true },
+  { title: 'Роль', key: 'role', sortable: true },
+  { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
+]
 </script>

@@ -4,13 +4,13 @@
     @update:model-value="$emit('update:modelValue', $event)"
     max-width="600"
   >
-    <v-card>
+    <v-card rounded="lg">
       <v-card-title>
         {{ form.id ? 'Редактировать тип договора' : 'Добавить тип договора' }}
       </v-card-title>
       <v-card-text>
         <!-- ID -->
-        <v-text-field v-model="form.id" label="ID" disabled />
+        <v-text-field v-model="form.id" label="ID" disabled variant="outlined" density="comfortable" />
 
         <!-- Название типа договора -->
         <v-text-field
@@ -18,24 +18,20 @@
           label="Название тип договора"
           :error="!!errors.name"
           :error-messages="errors.name"
+          variant="outlined"
+          density="comfortable"
         />
 
         <!-- Список уже добавленных типов договоров -->
         <div class="mt-4">
           <!--          <h3>Уже добавленные типы договоров:</h3>-->
-          <v-list dense>
-            <v-list dense>
-              <v-list-item
-                v-for="type in validityTypesOpt"
-                :key="type.id"
-                class="d-flex justify-space-between"
-              >
-                {{ type.name }}
-                <v-btn icon color="error" @click="$emit('delete', type.id)">
-                  <v-icon>mdi-delete</v-icon>
-                </v-btn>
-              </v-list-item>
-            </v-list>
+          <v-list density="compact">
+            <v-list-item v-for="type in validityTypesOpt" :key="type.id" class="d-flex justify-space-between">
+              {{ type.name }}
+              <template #append>
+                <v-btn icon="mdi-delete" size="small" color="error" variant="text" @click="$emit('delete', type.id)" />
+              </template>
+            </v-list-item>
             <v-list-item v-if="!validityTypesOpt || validityTypesOpt.length === 0">
               Пока нет добавленных типов
             </v-list-item>

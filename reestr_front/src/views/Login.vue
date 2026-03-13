@@ -2,10 +2,6 @@
   <AuthForm />
 </template>
 
-<script>
+<script setup>
 import AuthForm from '@/components/forms/AuthForm.vue'
-
-export default {
-  components: { AuthForm: AuthForm },
-}
 </script>

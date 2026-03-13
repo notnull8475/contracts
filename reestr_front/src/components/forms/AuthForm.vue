@@ -1,77 +1,92 @@
 <template>
-  <div class="flex items-center justify-center min-h-screen bg-gray-100">
-    <form
-      @submit.prevent="handleLogin"
-      class="bg-white p-6 rounded-lg shadow-md w-full max-w-sm space-y-4 sm:border sm:border-gray-200 sm:p-8 pa-10"
-    >
-      <h2 class="text-2xl font-bold text-center text-gray-800">Вход</h2>
+  <div class="login-shell">
+    <v-card class="mx-auto login-card" rounded="xl" elevation="6">
+      <v-card-item class="pb-1">
+        <v-card-title class="text-h5 font-weight-bold">Вход в систему</v-card-title>
+        <v-card-subtitle>Реестр договоров</v-card-subtitle>
+      </v-card-item>
 
-      <!-- Поле для логина -->
-      <div class="pb-4">
-        <label for="login" class="block text-sm font-medium text-gray-700 mb-1">Логин</label>
-        <input
-          id="login"
+      <v-card-text>
+        <v-text-field
           v-model="credentials.login"
-          type="text"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          required
+          label="Логин"
+          prepend-inner-icon="mdi-account-outline"
+          variant="outlined"
+          density="comfortable"
+          autocomplete="username"
         />
-      </div>
 
-      <!-- Поле для пароля -->
-      <div>
-        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
-        <input
-          id="password"
+        <v-text-field
           v-model="credentials.password"
+          label="Пароль"
           type="password"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          required
+          prepend-inner-icon="mdi-lock-outline"
+          variant="outlined"
+          density="comfortable"
+          autocomplete="current-password"
+          @keydown.enter="handleLogin"
         />
-      </div>
 
-      <!-- Кнопка входа -->
-      <button
-        type="submit"
-        class="w-full py-2 text-sm font-medium bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-      >
-        Войти
-      </button>
-    </form>
+        <v-btn
+          class="mt-2"
+          color="primary"
+          size="large"
+          block
+          :loading="loading"
+          @click="handleLogin"
+        >
+          Войти
+        </v-btn>
+      </v-card-text>
+    </v-card>
   </div>
 </template>
 
-<script>
+<script setup>
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth.js'
 
-export default {
-  data() {
-    return {
-      credentials: {
-        login: '',
-        password: '',
-      },
-    }
-  },
+const router = useRouter()
+const authStore = useAuthStore()
 
-  created() {
-    const authStore = useAuthStore()
-    if (authStore.token) {
-      // Если пользователь уже авторизован, перенаправляем его
-      this.$router.push('/about')
-    }
-  },
+const loading = ref(false)
+const credentials = reactive({
+  login: '',
+  password: '',
+})
 
-  methods: {
-    async handleLogin() {
-      try {
-        const authStore = useAuthStore()
-        await authStore.login(this.credentials)
-        this.$router.push('/about') // Переходим на страницу отчетов
-      } catch (error) {
-        alert(error.message)
-      }
-    },
-  },
+onMounted(() => {
+  if (authStore.token) {
+    router.push('/contracts')
+  }
+})
+
+async function handleLogin() {
+  try {
+    loading.value = true
+    await authStore.login(credentials)
+    await router.push('/contracts')
+  } catch (error) {
+    alert(error.message)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
+
+<style scoped>
+.login-shell {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid rgba(17, 75, 95, 0.08);
+}
+</style>

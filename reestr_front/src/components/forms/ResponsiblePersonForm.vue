@@ -4,22 +4,22 @@
     @update:model-value="$emit('update:modelValue', $event)"
     max-width="600"
   >
-    <v-card>
+    <v-card rounded="lg">
       <v-card-title>{{
         responsiblePerson?.id ? 'Редактировать ответственное лицо' : 'Добавить ответственное лицо'
       }}</v-card-title>
       <v-card-text>
         <!-- ID -->
-        <v-text-field v-model="form.id" label="ID" disabled />
+        <v-text-field v-model="form.id" label="ID" disabled variant="outlined" density="comfortable" />
 
         <!-- Имя -->
-        <v-text-field v-model="form.firstname" label="Имя" />
+        <v-text-field v-model="form.firstname" label="Имя" variant="outlined" density="comfortable" />
 
         <!-- Фамилия -->
-        <v-text-field v-model="form.lastname" label="Фамилия" />
+        <v-text-field v-model="form.lastname" label="Фамилия" variant="outlined" density="comfortable" />
 
         <!-- Отчество -->
-        <v-text-field v-model="form.name" label="Отчество" />
+        <v-text-field v-model="form.name" label="Отчество" variant="outlined" density="comfortable" />
 
         <v-select
           v-if="role === 'admin'"
@@ -28,6 +28,8 @@
           label="Пользователь системы"
           item-title="username"
           item-value="id"
+          variant="outlined"
+          density="comfortable"
         />
       </v-card-text>
       <v-card-actions>
@@ -40,9 +42,8 @@
   </v-dialog>
 </template>
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useAuthStore } from '@/store/auth'
-import { UserUtil } from '@/store/users.js'
 const authStore = useAuthStore()
 // Принимаем входные параметры
 const props = defineProps(['modelValue', 'responsiblePerson', 'userOptions'])
@@ -56,7 +57,6 @@ const form = reactive({
   name: '',
   user_id: null,
 })
-const users = ref([])
 const role = computed(() => {
   if (authStore.token) {
     return authStore.user.role

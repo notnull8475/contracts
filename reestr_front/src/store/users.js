@@ -24,7 +24,7 @@ export const UserUtil = defineStore('users', {
     },
     async deleteUser(userId) {
       try {
-        const response = await axios.delete(`/api/v1/users/del/${userId}`)
+        const response = await axios.delete(`/api/v1/admin/users/delete/${userId}`)
         return response.data
       } catch (error) {
         console.log(error)
