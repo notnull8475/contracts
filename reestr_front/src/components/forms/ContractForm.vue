@@ -42,9 +42,9 @@
           <v-col cols="12" md="8">
             <v-autocomplete
               v-model="form.organization_id"
-              :items="filteredOrganizations"
+              :items="orgAutocompleteItems"
               label="Организация"
-              item-title="short_name_with_opf"
+              item-title="display"
               item-value="id"
               v-model:search="searchOrganization"
               placeholder="Введите название организации"
@@ -53,7 +53,22 @@
               variant="outlined"
               density="comfortable"
               :menu-props="{ maxHeight: '220px' }"
-            />
+            >
+              <template #no-data>
+                <div class="pa-3 d-flex flex-column ga-2">
+                  <span class="text-body-2 text-medium-emphasis">Организация не найдена в справочнике</span>
+                  <v-btn
+                    color="primary"
+                    size="small"
+                    variant="tonal"
+                    prepend-icon="mdi-plus"
+                    @click="openQuickOrganizationDialog"
+                  >
+                    Добавить новую организацию
+                  </v-btn>
+                </div>
+              </template>
+            </v-autocomplete>
           </v-col>
 
           <v-col cols="12" md="6">
@@ -175,18 +190,76 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <v-dialog v-model="quickOrgDialog" max-width="680">
+    <v-card rounded="lg">
+      <v-card-title>Новая организация</v-card-title>
+      <v-card-text>
+        <v-row dense>
+          <v-col cols="12" md="8">
+            <v-text-field
+              v-model="quickOrg.short_name_with_opf"
+              label="Краткое наименование"
+              variant="outlined"
+              density="comfortable"
+              :error="Boolean(quickOrgErrors.short_name_with_opf)"
+              :error-messages="quickOrgErrors.short_name_with_opf"
+            />
+          </v-col>
+          <v-col cols="12" md="4">
+            <v-text-field
+              v-model="quickOrg.inn"
+              label="ИНН"
+              variant="outlined"
+              density="comfortable"
+              :error="Boolean(quickOrgErrors.inn)"
+              :error-messages="quickOrgErrors.inn"
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-text-field
+              v-model="quickOrg.full_name_with_opf"
+              label="Полное наименование"
+              variant="outlined"
+              density="comfortable"
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-text-field v-model="quickOrg.legal_address" label="Юридический адрес" variant="outlined" density="comfortable" />
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-text-field v-model="quickOrg.fact_address" label="Фактический адрес" variant="outlined" density="comfortable" />
+          </v-col>
+        </v-row>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn text @click="quickOrgDialog = false">Отмена</v-btn>
+        <v-btn color="primary" :loading="quickOrgSaving" @click="saveQuickOrganization">Сохранить</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
 import { computed, reactive, ref, toRefs, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts'
+import { OrganizationUtil } from '@/store/organizations'
 import { useToastStore } from '@/store/toast'
 
-const props = defineProps(['modelValue', 'contract', 'organizationsOpt', 'respPersonsOpt', 'validityTypesOpt'])
-const emit = defineEmits(['update:modelValue', 'save', 'delete'])
-const { modelValue, contract, organizationsOpt, respPersonsOpt, validityTypesOpt } = toRefs(props)
+const props = defineProps([
+  'modelValue',
+  'contract',
+  'organizationsOpt',
+  'organizationsRaw',
+  'respPersonsOpt',
+  'validityTypesOpt',
+])
+const emit = defineEmits(['update:modelValue', 'save', 'delete', 'organization-added'])
+const { modelValue, contract, organizationsOpt, organizationsRaw, respPersonsOpt, validityTypesOpt } = toRefs(props)
 
 const contractStore = ContractUtil()
+const organizationStore = OrganizationUtil()
 const toast = useToastStore()
 
 const form = reactive({
@@ -209,13 +282,51 @@ const files = ref([])
 const pendingFiles = ref([])
 const uploading = ref(false)
 const searchOrganization = ref('')
+const quickOrgDialog = ref(false)
+const quickOrgSaving = ref(false)
+
+const quickOrg = reactive({
+  short_name_with_opf: '',
+  inn: '',
+  full_name_with_opf: '',
+  legal_address: '',
+  fact_address: '',
+  management_post: '',
+  management_name: '',
+  ogrn: '',
+  opf_full: '',
+  opf_short: '',
+})
+
+const quickOrgErrors = reactive({
+  short_name_with_opf: '',
+  inn: '',
+})
 
 const filteredOrganizations = computed(() => {
-  if (!organizationsOpt.value) return []
-  return organizationsOpt.value.filter((org) =>
-    org.short_name_with_opf.toLowerCase().includes(searchOrganization.value?.toLowerCase() || ''),
-  )
+  const source = Array.isArray(organizationsRaw.value) && organizationsRaw.value.length
+    ? organizationsRaw.value
+    : organizationsOpt.value
+
+  if (!source) return []
+
+  const term = (searchOrganization.value || '').toLowerCase()
+  if (!term) return source
+
+  return source.filter((org) => {
+    const shortName = (org.short_name_with_opf || '').toLowerCase()
+    const fullName = (org.full_name_with_opf || '').toLowerCase()
+    const inn = String(org.inn || '')
+    return shortName.includes(term) || fullName.includes(term) || inn.includes(term)
+  })
 })
+
+const orgAutocompleteItems = computed(() =>
+  filteredOrganizations.value.map((org) => ({
+    ...org,
+    display: org.inn ? `${org.short_name_with_opf} (ИНН ${org.inn})` : org.short_name_with_opf,
+  })),
+)
 
 const selectedUploadFile = computed(() => resolveSelectedFile(newFile.value))
 
@@ -324,6 +435,55 @@ function resolveSelectedFile(fileInput) {
 
 function removePendingFile(index) {
   pendingFiles.value.splice(index, 1)
+}
+
+function openQuickOrganizationDialog() {
+  quickOrg.short_name_with_opf = searchOrganization.value || ''
+  quickOrg.inn = ''
+  quickOrg.full_name_with_opf = ''
+  quickOrg.legal_address = ''
+  quickOrg.fact_address = ''
+  quickOrgErrors.short_name_with_opf = ''
+  quickOrgErrors.inn = ''
+  quickOrgDialog.value = true
+}
+
+async function saveQuickOrganization() {
+  quickOrgErrors.short_name_with_opf = ''
+  quickOrgErrors.inn = ''
+
+  if (!quickOrg.short_name_with_opf?.trim()) {
+    quickOrgErrors.short_name_with_opf = 'Введите краткое наименование'
+  }
+
+  const innValue = String(quickOrg.inn || '').trim()
+  if (!/^\d{10,12}$/.test(innValue)) {
+    quickOrgErrors.inn = 'ИНН должен содержать 10-12 цифр'
+  }
+
+  if (quickOrgErrors.short_name_with_opf || quickOrgErrors.inn) {
+    return
+  }
+
+  quickOrgSaving.value = true
+  try {
+    const payload = {
+      ...quickOrg,
+      short_name_with_opf: quickOrg.short_name_with_opf.trim(),
+      inn: Number(innValue),
+    }
+
+    const created = await organizationStore.addOrganization(payload)
+    form.organization_id = created.id
+    searchOrganization.value = created.short_name_with_opf || ''
+    quickOrgDialog.value = false
+    emit('organization-added', created)
+    toast.push('Организация добавлена в справочник', 'success')
+  } catch (error) {
+    toast.push(error.message || 'Не удалось добавить организацию', 'error')
+  } finally {
+    quickOrgSaving.value = false
+  }
 }
 
 function calculateContractPeriod(fromDate, toDate) {

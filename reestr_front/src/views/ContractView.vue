@@ -15,13 +15,16 @@
         </div>
       </div>
 
-      <div class="d-flex flex-wrap ga-2 mt-4">
-        <v-chip color="primary" variant="tonal">Всего: {{ contracts.length }}</v-chip>
-        <v-chip color="success" variant="tonal">Актуальные: {{ activeContracts }}</v-chip>
-        <v-chip color="warning" variant="tonal">Истекают (30 дн): {{ expiringContracts }}</v-chip>
-      </div>
-
       <div class="d-flex flex-wrap ga-2 mt-3">
+        <v-select
+          v-model="yearFilter"
+          :items="yearFilterOptions"
+          label="Год"
+          density="comfortable"
+          hide-details
+          variant="outlined"
+          style="max-width: 180px"
+        />
         <v-select
           v-model="statusFilter"
           :items="statusFilterOptions"
@@ -40,6 +43,12 @@
           variant="outlined"
           style="max-width: 260px"
         />
+      </div>
+
+      <div class="d-flex flex-wrap ga-2 mt-4">
+        <v-chip color="primary" variant="tonal">Всего: {{ contracts.length }}</v-chip>
+        <v-chip color="success" variant="tonal">Актуальные: {{ activeContracts }}</v-chip>
+        <v-chip color="warning" variant="tonal">Истекают (30 дн): {{ expiringContracts }}</v-chip>
       </div>
     </v-card-text>
   </v-card>
@@ -77,6 +86,7 @@
         :respPersonsOpt="respPersonsOpt"
         :organizationsOpt="organizationsOpt"
         :validityTypesOpt="validityTypesOpt"
+        :fileCounts="fileCounts"
         @edit="openForm"
       />
     </v-card-text>
@@ -87,9 +97,11 @@
     :contract="selectedContract"
     :respPersonsOpt="respPersonsOpt"
     :organizationsOpt="organizationsOpt"
+    :organizationsRaw="organizations"
     :validityTypesOpt="validityTypesOpt"
     @save="saveContract"
     @delete="deleteContract"
+    @organization-added="handleOrganizationAdded"
   />
 
   <validity-types-form
@@ -117,10 +129,12 @@ const dialog = ref(false)
 const VTdialog = ref(false)
 const selectedContract = ref(null)
 const contracts = ref([])
+const fileCounts = ref({})
 const organizations = ref([])
 const respPersons = ref([])
 const validityTypes = ref([])
 const loading = ref(false)
+const yearFilter = ref('all')
 const statusFilter = ref('all')
 const expiryFilter = ref('all')
 
@@ -144,6 +158,18 @@ const expiryFilterOptions = [
   { title: 'Истекает в 60 дней', value: '60' },
   { title: 'Уже истек', value: 'expired' },
 ]
+
+const yearFilterOptions = computed(() => {
+  const years = new Set()
+  contracts.value.forEach((contract) => {
+    const sourceDate = contract.date_from || contract.date_to
+    if (!sourceDate) return
+    const year = new Date(sourceDate).getFullYear()
+    if (!Number.isNaN(year)) years.add(String(year))
+  })
+
+  return [{ title: 'Все годы', value: 'all' }, ...[...years].sort((a, b) => Number(b) - Number(a)).map((year) => ({ title: year, value: year }))]
+})
 
 const respPersonsOpt = computed(() =>
   respPersons.value.map((i) => ({
@@ -179,6 +205,9 @@ const filteredContracts = computed(() => {
       (statusFilter.value === 'active' && c.actual) ||
       (statusFilter.value === 'inactive' && !c.actual)
 
+    const contractYear = c.date_from ? String(new Date(c.date_from).getFullYear()) : null
+    const yearMatch = yearFilter.value === 'all' || (contractYear && contractYear === yearFilter.value)
+
     let expiryMatch = true
     if (expiryFilter.value !== 'all') {
       if (!c.date_to) {
@@ -192,7 +221,7 @@ const filteredContracts = computed(() => {
       }
     }
 
-    return numberMatch && statusMatch && expiryMatch
+    return numberMatch && statusMatch && expiryMatch && yearMatch
   })
 })
 
@@ -220,6 +249,7 @@ const fetchPage = async () => {
     ])
 
     contracts.value = Array.isArray(contractRows) ? contractRows : []
+    await fetchFileCounts()
     respPersons.value = Array.isArray(personRows) ? personRows : []
     organizations.value = Array.isArray(organizationRows) ? organizationRows : []
     validityTypes.value = Array.isArray(typeRows) ? typeRows : []
@@ -228,6 +258,24 @@ const fetchPage = async () => {
   } finally {
     loading.value = false
   }
+}
+
+async function fetchFileCounts() {
+  const ids = contracts.value.map((contract) => contract.id).filter(Boolean)
+  if (!ids.length) {
+    fileCounts.value = {}
+    return
+  }
+
+  const results = await Promise.allSettled(ids.map((id) => contractStore.getContractFiles(id)))
+  const next = {}
+
+  ids.forEach((id, idx) => {
+    const result = results[idx]
+    next[id] = result.status === 'fulfilled' && Array.isArray(result.value) ? result.value.length : 0
+  })
+
+  fileCounts.value = next
 }
 
 onMounted(fetchPage)
@@ -269,6 +317,8 @@ async function saveContract(payload) {
         await uploadPendingFiles(contract.id, pendingFiles)
       }
 
+      await fetchFileCounts()
+
       return
     }
 
@@ -290,6 +340,8 @@ async function saveContract(payload) {
     } else if (!contractId && pendingFiles.length) {
       toast.push('Договор сохранен, но не удалось определить ID для загрузки файлов', 'error')
     }
+
+    await fetchFileCounts()
   } catch (e) {
     console.error('Ошибка сохранения', e)
     toast.push('Ошибка сохранения договора', 'error')
@@ -335,6 +387,14 @@ async function deleteContract(id) {
   } catch (e) {
     console.error('Ошибка удаления', e)
     alert(e.message)
+  }
+}
+
+function handleOrganizationAdded(organization) {
+  if (!organization?.id) return
+  const exists = organizations.value.some((item) => item.id === organization.id)
+  if (!exists) {
+    organizations.value.push(organization)
   }
 }
 </script>
