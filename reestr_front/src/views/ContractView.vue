@@ -110,6 +110,7 @@ import { OrganizationUtil } from '@/store/organizations.js'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import ValidityTypesForm from '@/components/forms/ValidityTypesForm.vue'
 import { ValidityTypesUtil } from '@/store/validityTypes.js'
+import { useToastStore } from '@/store/toast.js'
 
 const search = ref('')
 const dialog = ref(false)
@@ -129,6 +130,7 @@ const responsiblePersonStore = ResponsiblePersonUtil()
 const validityTypesStore = ValidityTypesUtil()
 const route = useRoute()
 const router = useRouter()
+const toast = useToastStore()
 
 const statusFilterOptions = [
   { title: 'Все', value: 'all' },
@@ -253,19 +255,58 @@ function openTypeForm(type = null) {
   VTdialog.value = true
 }
 
-async function saveContract(contract) {
+async function saveContract(payload) {
+  const contract = payload?.contract ?? payload
+  const pendingFiles = Array.isArray(payload?.pendingFiles) ? payload.pendingFiles : []
+
   try {
     if (contract.id) {
       await contractStore.updateContract(contract)
       const idx = contracts.value.findIndex((c) => c.id === contract.id)
       if (idx !== -1) contracts.value[idx] = contract
+
+      if (pendingFiles.length) {
+        await uploadPendingFiles(contract.id, pendingFiles)
+      }
+
       return
     }
 
     const created = await contractStore.addContract(contract)
-    contracts.value.push(created ?? { ...contract, id: Date.now() })
+    let contractId = created?.id
+
+    if (!contractId) {
+      await fetchPage()
+      const lastCreated = [...contracts.value]
+        .filter((item) => item.number === contract.number)
+        .sort((a, b) => b.id - a.id)[0]
+      contractId = lastCreated?.id
+    } else {
+      contracts.value.push(created)
+    }
+
+    if (contractId && pendingFiles.length) {
+      await uploadPendingFiles(contractId, pendingFiles)
+    } else if (!contractId && pendingFiles.length) {
+      toast.push('Договор сохранен, но не удалось определить ID для загрузки файлов', 'error')
+    }
   } catch (e) {
     console.error('Ошибка сохранения', e)
+    toast.push('Ошибка сохранения договора', 'error')
+  }
+}
+
+async function uploadPendingFiles(contractId, files) {
+  const results = await Promise.allSettled(files.map((file) => contractStore.uploadFile(contractId, file)))
+  const successCount = results.filter((result) => result.status === 'fulfilled').length
+  const failedCount = results.length - successCount
+
+  if (successCount) {
+    toast.push(`Загружено файлов: ${successCount}`, 'success')
+  }
+
+  if (failedCount) {
+    toast.push(`Не удалось загрузить файлов: ${failedCount}`, 'error')
   }
 }
 

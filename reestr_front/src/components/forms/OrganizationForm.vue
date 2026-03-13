@@ -5,9 +5,6 @@
           organization?.id ? 'Редактировать организацию' : 'Добавить организацию'
         }}</v-card-title>
       <v-card-text>
-        <!-- ID -->
-        <v-text-field v-model="form.id" label="ID" disabled variant="outlined" density="comfortable" />
-
         <!-- ИНН с кнопкой автозаполнения -->
         <div class="d-flex align-center gap-2">
           <v-text-field

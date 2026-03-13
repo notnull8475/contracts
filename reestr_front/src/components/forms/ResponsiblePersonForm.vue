@@ -9,9 +9,6 @@
         responsiblePerson?.id ? 'Редактировать ответственное лицо' : 'Добавить ответственное лицо'
       }}</v-card-title>
       <v-card-text>
-        <!-- ID -->
-        <v-text-field v-model="form.id" label="ID" disabled variant="outlined" density="comfortable" />
-
         <!-- Имя -->
         <v-text-field v-model="form.firstname" label="Имя" variant="outlined" density="comfortable" />
 

@@ -9,9 +9,6 @@
         {{ form.id ? 'Редактировать тип договора' : 'Добавить тип договора' }}
       </v-card-title>
       <v-card-text>
-        <!-- ID -->
-        <v-text-field v-model="form.id" label="ID" disabled variant="outlined" density="comfortable" />
-
         <!-- Название типа договора -->
         <v-text-field
           v-model="form.name"
