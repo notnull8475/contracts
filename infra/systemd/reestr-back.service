@@ -1,0 +1,33 @@
+[Unit]
+Description=Reestr Dogovorov — Actix-web Backend
+Documentation=https://github.com/notnull8475/contracts
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+
+WorkingDirectory=/opt/reestrdogovorov/reestr_back
+
+# Загружаем переменные из .env (DATABASE_URL, DADATAAPIKEY и т.д.)
+EnvironmentFile=/opt/reestrdogovorov/reestr_back/.env
+
+ExecStart=/opt/reestrdogovorov/reestr_back/target/release/reestr_back
+
+# Перезапуск при сбое, но не при ручном systemctl stop
+Restart=on-failure
+RestartSec=5s
+
+# Ограничения безопасности
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Лог
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=reestr-back
+
+[Install]
+WantedBy=multi-user.target
