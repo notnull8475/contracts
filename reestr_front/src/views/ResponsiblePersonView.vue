@@ -68,6 +68,7 @@ import ResponsiblePersonList from '@/components/lists/ResponsiblePersonList.vue'
 import ResponsiblePersonForm from '@/components/forms/ResponsiblePersonForm.vue'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import { UserUtil } from '@/store/users.js'
+import { useAuthStore } from '@/store/auth.js'
 
 const search = ref('')
 const dialog = ref(false)
@@ -78,8 +79,11 @@ const loading = ref(false)
 
 const responsiblePersonStore = ResponsiblePersonUtil()
 const userStore = UserUtil()
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 const userOptions = computed(() =>
   users.value.map((user) => ({
@@ -93,14 +97,23 @@ const linkedUsers = computed(() => responsiblePersons.value.filter((p) => p.user
 const fetchPage = async () => {
   loading.value = true
   try {
-    const [personRows, userRows] = await Promise.all([
-      responsiblePersonStore.getResponsiblePersons(),
-      userStore.getAllUsers(),
-    ])
+    const personRows = await responsiblePersonStore.getResponsiblePersons()
     responsiblePersons.value = Array.isArray(personRows) ? personRows : []
-    users.value = Array.isArray(userRows) ? userRows : []
+
+    if (isAdmin.value) {
+      try {
+        const userRows = await userStore.getAllUsers()
+        users.value = Array.isArray(userRows) ? userRows : []
+      } catch (e) {
+        console.error('Не удалось получить список пользователей', e)
+        users.value = []
+      }
+    } else {
+      users.value = []
+    }
   } catch (e) {
     console.error('Не удалось получить список ответственных лиц', e)
+    responsiblePersons.value = []
   } finally {
     loading.value = false
   }
