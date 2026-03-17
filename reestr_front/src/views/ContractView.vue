@@ -88,6 +88,7 @@
         :validityTypesOpt="validityTypesOpt"
         :fileCounts="fileCounts"
         @edit="openForm"
+        @files-click="openContractFiles"
       />
     </v-card-text>
   </v-card>
@@ -110,6 +111,34 @@
     @save="saveType"
     @delete="deleteType"
   />
+
+  <v-dialog v-model="filesDialog" max-width="720">
+    <v-card rounded="lg">
+      <v-card-title>Файлы договора</v-card-title>
+      <v-card-text>
+        <v-progress-linear v-if="filesDialogLoading" indeterminate color="primary" class="mb-3" />
+
+        <v-alert v-else-if="!selectedContractFiles.length" type="info" variant="tonal">
+          У договора нет прикрепленных файлов.
+        </v-alert>
+
+        <v-list v-else density="comfortable">
+          <v-list-item v-for="file in selectedContractFiles" :key="file.id" @click="downloadFile(file.id)">
+            <template #prepend><v-icon>mdi-file-document</v-icon></template>
+            <v-list-item-title>{{ file.original_name }}</v-list-item-title>
+            <v-list-item-subtitle>{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
+            <template #append>
+              <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadFile(file.id)" />
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn text @click="filesDialog = false">Закрыть</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
@@ -128,6 +157,10 @@ const search = ref('')
 const dialog = ref(false)
 const VTdialog = ref(false)
 const selectedContract = ref(null)
+const unknownOrganizationId = ref(null)
+const filesDialog = ref(false)
+const filesDialogLoading = ref(false)
+const selectedContractFiles = ref([])
 const contracts = ref([])
 const fileCounts = ref({})
 const organizations = ref([])
@@ -304,8 +337,11 @@ function openTypeForm(type = null) {
 }
 
 async function saveContract(payload) {
-  const contract = payload?.contract ?? payload
+  const contract = { ...(payload?.contract ?? payload) }
   const pendingFiles = Array.isArray(payload?.pendingFiles) ? payload.pendingFiles : []
+
+  contract.number = contract.number?.trim() ? contract.number.trim() : `б/н ${new Date().toISOString().slice(0, 10)}`
+  contract.organization_id = contract.organization_id || (await ensureOrganizationIdForIncompleteContract())
 
   try {
     if (contract.id) {
@@ -346,6 +382,36 @@ async function saveContract(payload) {
     console.error('Ошибка сохранения', e)
     toast.push('Ошибка сохранения договора', 'error')
   }
+}
+
+async function ensureOrganizationIdForIncompleteContract() {
+  if (unknownOrganizationId.value) {
+    return unknownOrganizationId.value
+  }
+
+  const existing = organizations.value.find((org) => org.short_name_with_opf === 'Не указано')
+  if (existing?.id) {
+    unknownOrganizationId.value = existing.id
+    return existing.id
+  }
+
+  const generatedInn = Number(`9${Date.now().toString().slice(-9)}`)
+  const created = await organizationStore.addOrganization({
+    short_name_with_opf: 'Не указано',
+    inn: generatedInn,
+    fact_address: '',
+    legal_address: '',
+    management_post: '',
+    management_name: '',
+    ogrn: '',
+    full_name_with_opf: 'Организация не указана',
+    opf_full: '',
+    opf_short: '',
+  })
+
+  organizations.value.push(created)
+  unknownOrganizationId.value = created.id
+  return created.id
 }
 
 async function uploadPendingFiles(contractId, files) {
@@ -396,5 +462,36 @@ function handleOrganizationAdded(organization) {
   if (!exists) {
     organizations.value.push(organization)
   }
+}
+
+async function openContractFiles(contract) {
+  filesDialogLoading.value = true
+  selectedContractFiles.value = []
+
+  try {
+    const files = await contractStore.getContractFiles(contract.id)
+    selectedContractFiles.value = Array.isArray(files) ? files : []
+
+    if (selectedContractFiles.value.length === 1) {
+      downloadFile(selectedContractFiles.value[0].id)
+      return
+    }
+
+    filesDialog.value = true
+  } catch (error) {
+    toast.push('Не удалось получить список файлов', 'error')
+  } finally {
+    filesDialogLoading.value = false
+  }
+}
+
+function downloadFile(fileId) {
+  contractStore.downloadFile(fileId)
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 </script>

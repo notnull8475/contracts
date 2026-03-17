@@ -36,6 +36,18 @@
       {{ item.address || '---' }}
     </template>
 
+    <template #item.files="{ item }">
+      <v-chip
+        size="small"
+        :color="(fileCounts?.[item.id] || 0) > 0 ? 'info' : 'default'"
+        variant="tonal"
+        class="cursor-pointer"
+        @click="$emit('files-click', item)"
+      >
+        {{ (fileCounts?.[item.id] || 0) > 0 ? `Файлов: ${fileCounts[item.id]}` : 'Нет файлов' }}
+      </v-chip>
+    </template>
+
     <template #item.actual="{ item }">
       <v-chip :color="item.actual ? 'success' : 'default'" size="small" variant="tonal">
         {{ item.actual ? 'Да' : 'Нет' }}
@@ -51,8 +63,14 @@
 <script setup>
 import { computed } from 'vue'
 
-const props = defineProps(['contracts', 'respPersonsOpt', 'organizationsOpt', 'validityTypesOpt'])
-defineEmits(['edit'])
+const props = defineProps([
+  'contracts',
+  'respPersonsOpt',
+  'organizationsOpt',
+  'validityTypesOpt',
+  'fileCounts',
+])
+defineEmits(['edit', 'files-click'])
 
 const headers = [
   { title: 'Номер', key: 'number', sortable: true },
@@ -62,6 +80,7 @@ const headers = [
   { title: 'Организация', key: 'organization_id', sortable: true },
   { title: 'Тип', key: 'type_of_validity', sortable: true },
   { title: 'Ответственный', key: 'responsible_person_id', sortable: true },
+  { title: 'Файлы', key: 'files', sortable: false },
   { title: 'Адрес', key: 'address', sortable: false },
   { title: 'Актуален', key: 'actual', sortable: true },
   { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
