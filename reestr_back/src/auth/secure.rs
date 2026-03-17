@@ -47,7 +47,18 @@ pub async fn login_user(login_data: web::Json<LoginRequest>) -> impl Responder {
         .filter(users::login.eq(&login_data.login))
         .first::<User>(conn)
     {
-        if verify(&login_data.password, &user.password_hash).unwrap_or(false) {
+        let bcrypt_match = verify(&login_data.password, &user.password_hash).unwrap_or(false);
+        let legacy_plaintext_match = login_data.password == user.password_hash;
+
+        if bcrypt_match || legacy_plaintext_match {
+            if legacy_plaintext_match {
+                if let Ok(new_hash) = hash(&login_data.password, DEFAULT_COST) {
+                    let _ = diesel::update(users::table.filter(users::id.eq(user.id)))
+                        .set(users::password_hash.eq(new_hash))
+                        .execute(conn);
+                }
+            }
+
             let token = create_jwt(&user);
             return HttpResponse::Ok().json(LoginResponse { token });
         }
