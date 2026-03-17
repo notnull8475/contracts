@@ -55,7 +55,12 @@ export const useRequtil = defineStore('requtil', {
         return response.data
       } catch (error) {
         console.error('Ошибка в makeDeleteRequest:', error.response?.status, error.message)
-        throw new Error(errorMessage || 'Ошибка при выполнении DELETE-запроса')
+        const serverError =
+          error.response?.data?.error ||
+          (typeof error.response?.data === 'string' ? error.response.data : '') ||
+          errorMessage ||
+          'Ошибка при выполнении DELETE-запроса'
+        throw new Error(serverError)
       }
     },
 
@@ -63,11 +68,17 @@ export const useRequtil = defineStore('requtil', {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        const response = await axios.post(`${url}${id}`, formData)
+        const response = await axios.post(`${url}${id}`, formData, {
+          headers: {
+            'Content-Type': undefined,
+          },
+        })
         return response.data
       } catch (error) {
         console.error('Ошибка в makeUploadRequest:', error.response?.status, error.message)
-        throw new Error(errorMessage || 'Ошибка при загрузке файла')
+        const serverError =
+          error.response?.data?.error || errorMessage || 'Ошибка при загрузке файла'
+        throw new Error(serverError)
       }
     },
   },
