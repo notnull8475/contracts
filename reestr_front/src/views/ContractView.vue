@@ -11,6 +11,9 @@
           <v-btn color="secondary" variant="tonal" prepend-icon="mdi-shape-outline" @click="openTypeForm()">
             Типы
           </v-btn>
+          <v-btn color="secondary" variant="tonal" prepend-icon="mdi-tag-multiple" @click="statusesDialog = true">
+            Статусы
+          </v-btn>
           <v-btn color="primary" prepend-icon="mdi-plus" @click="openForm()">Новый договор</v-btn>
         </div>
       </div>
@@ -132,6 +135,13 @@
     @delete="deleteType"
   />
 
+  <contract-statuses-form
+    v-model="statusesDialog"
+    :statusesOpt="contractStatuses"
+    @save="saveStatus"
+    @delete="deleteStatus"
+  />
+
   <v-dialog v-model="filesDialog" max-width="720">
     <v-card rounded="lg">
       <v-card-title>Файлы договора</v-card-title>
@@ -172,11 +182,13 @@ import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import ValidityTypesForm from '@/components/forms/ValidityTypesForm.vue'
 import { ValidityTypesUtil } from '@/store/validityTypes.js'
 import { ContractStatusUtil } from '@/store/contractStatuses.js'
+import ContractStatusesForm from '@/components/forms/ContractStatusesForm.vue'
 import { useToastStore } from '@/store/toast.js'
 
 const search = ref('')
 const dialog = ref(false)
 const VTdialog = ref(false)
+const statusesDialog = ref(false)
 const selectedContract = ref(null)
 const unknownOrganizationId = ref(null)
 const filesDialog = ref(false)
@@ -475,6 +487,28 @@ async function deleteType(id) {
     validityTypes.value = validityTypes.value.filter((t) => t.id !== id)
   } catch (e) {
     console.error('Ошибка удаления типа', e)
+  }
+}
+
+async function saveStatus(dto) {
+  try {
+    const created = await contractStatusStore.addStatus(dto)
+    contractStatuses.value.push(created)
+  } catch (e) {
+    toast.push(e.message || 'Ошибка добавления статуса', 'error')
+  }
+}
+
+async function deleteStatus(id) {
+  try {
+    await contractStatusStore.deleteStatus(id)
+    contractStatuses.value = contractStatuses.value.filter((s) => s.id !== id)
+    // Обнулить статус в договорах локально (на сервере это делает FK ON DELETE SET NULL)
+    contracts.value.forEach((c) => {
+      if (c.contract_status_id === id) c.contract_status_id = null
+    })
+  } catch (e) {
+    toast.push(e.message || 'Ошибка удаления статуса', 'error')
   }
 }
 
