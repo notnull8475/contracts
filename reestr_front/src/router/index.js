@@ -10,6 +10,7 @@ const AppLayout = () => import('@/layouts/AppLayout.vue')
 const About = () => import('@/views/AboutView.vue')
 const NotFound = () => import('@/views/NotFoundView.vue')
 const Users = () => import('@/views/admin/UsersView.vue')
+const ContractStatuses = () => import('@/views/admin/ContractStatusesView.vue')
 
 const routes = [
   { path: '/', redirect: '/about' },
@@ -25,6 +26,12 @@ const routes = [
         path: 'admin/users',
         name: 'users',
         component: Users,
+        meta: { requiresAuth: true, requiresAdmin: true },
+      },
+      {
+        path: 'admin/contract-statuses',
+        name: 'contract-statuses',
+        component: ContractStatuses,
         meta: { requiresAuth: true, requiresAdmin: true },
       },
       {

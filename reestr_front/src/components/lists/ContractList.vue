@@ -48,10 +48,16 @@
       </v-chip>
     </template>
 
-    <template #item.actual="{ item }">
-      <v-chip :color="item.actual ? 'success' : 'default'" size="small" variant="tonal">
-        {{ item.actual ? 'Да' : 'Нет' }}
+    <template #item.contract_status_id="{ item }">
+      <v-chip
+        v-if="statusMap[item.contract_status_id]"
+        size="small"
+        variant="tonal"
+        :color="statusMap[item.contract_status_id].color"
+      >
+        {{ statusMap[item.contract_status_id].name }}
       </v-chip>
+      <span v-else class="text-medium-emphasis text-caption">—</span>
     </template>
 
     <template #item.actions="{ item }">
@@ -69,6 +75,7 @@ const props = defineProps([
   'organizationsOpt',
   'validityTypesOpt',
   'fileCounts',
+  'statusesOpt',
 ])
 defineEmits(['edit', 'files-click'])
 
@@ -82,9 +89,17 @@ const headers = [
   { title: 'Ответственный', key: 'responsible_person_id', sortable: true },
   { title: 'Файлы', key: 'files', sortable: false },
   { title: 'Адрес', key: 'address', sortable: false },
-  { title: 'Актуален', key: 'actual', sortable: true },
+  { title: 'Статус', key: 'contract_status_id', sortable: true },
   { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
 ]
+
+const statusMap = computed(() => {
+  const map = {}
+  props.statusesOpt?.forEach((s) => {
+    map[s.id] = s
+  })
+  return map
+})
 
 const orgIdToName = computed(() => {
   const map = {}

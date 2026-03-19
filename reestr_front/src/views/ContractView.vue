@@ -32,8 +32,19 @@
           density="comfortable"
           hide-details
           variant="outlined"
-          style="max-width: 220px"
-        />
+          clearable
+          style="max-width: 240px"
+        >
+          <template #selection="{ item }">
+            <v-chip
+              v-if="item.raw.color"
+              :color="item.raw.color"
+              size="small"
+              variant="tonal"
+            >{{ item.title }}</v-chip>
+            <span v-else>{{ item.title }}</span>
+          </template>
+        </v-select>
         <v-select
           v-model="expiryFilter"
           :items="expiryFilterOptions"
@@ -47,7 +58,14 @@
 
       <div class="d-flex flex-wrap ga-2 mt-4">
         <v-chip color="primary" variant="tonal">Всего: {{ contracts.length }}</v-chip>
-        <v-chip color="success" variant="tonal">Актуальные: {{ activeContracts }}</v-chip>
+        <v-chip
+          v-for="s in contractStatuses"
+          :key="s.id"
+          :color="s.color"
+          variant="tonal"
+        >
+          {{ s.name }}: {{ statusCountMap[s.id] || 0 }}
+        </v-chip>
         <v-chip color="warning" variant="tonal">Истекают (30 дн): {{ expiringContracts }}</v-chip>
       </div>
     </v-card-text>
@@ -86,6 +104,7 @@
         :respPersonsOpt="respPersonsOpt"
         :organizationsOpt="organizationsOpt"
         :validityTypesOpt="validityTypesOpt"
+        :statusesOpt="contractStatuses"
         :fileCounts="fileCounts"
         @edit="openForm"
         @files-click="openContractFiles"
@@ -100,6 +119,7 @@
     :organizationsOpt="organizationsOpt"
     :organizationsRaw="organizations"
     :validityTypesOpt="validityTypesOpt"
+    :statusesOpt="contractStatuses"
     @save="saveContract"
     @delete="deleteContract"
     @organization-added="handleOrganizationAdded"
@@ -151,6 +171,7 @@ import { OrganizationUtil } from '@/store/organizations.js'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import ValidityTypesForm from '@/components/forms/ValidityTypesForm.vue'
 import { ValidityTypesUtil } from '@/store/validityTypes.js'
+import { ContractStatusUtil } from '@/store/contractStatuses.js'
 import { useToastStore } from '@/store/toast.js'
 
 const search = ref('')
@@ -166,24 +187,25 @@ const fileCounts = ref({})
 const organizations = ref([])
 const respPersons = ref([])
 const validityTypes = ref([])
+const contractStatuses = ref([])
 const loading = ref(false)
 const yearFilter = ref('all')
-const statusFilter = ref('all')
+const statusFilter = ref(null)
 const expiryFilter = ref('all')
 
 const contractStore = ContractUtil()
 const organizationStore = OrganizationUtil()
 const responsiblePersonStore = ResponsiblePersonUtil()
 const validityTypesStore = ValidityTypesUtil()
+const contractStatusStore = ContractStatusUtil()
 const route = useRoute()
 const router = useRouter()
 const toast = useToastStore()
 
-const statusFilterOptions = [
-  { title: 'Все', value: 'all' },
-  { title: 'Только актуальные', value: 'active' },
-  { title: 'Только неактуальные', value: 'inactive' },
-]
+const statusFilterOptions = computed(() => [
+  { title: 'Все статусы', value: null, color: null },
+  ...contractStatuses.value.map((s) => ({ title: s.name, value: s.id, color: s.color })),
+])
 
 const expiryFilterOptions = [
   { title: 'Любой срок', value: 'all' },
@@ -234,9 +256,9 @@ const filteredContracts = computed(() => {
     const numberMatch = !term || (c.number && c.number.toLowerCase().includes(term))
 
     const statusMatch =
-      statusFilter.value === 'all' ||
-      (statusFilter.value === 'active' && c.actual) ||
-      (statusFilter.value === 'inactive' && !c.actual)
+      statusFilter.value === null ||
+      statusFilter.value === undefined ||
+      c.contract_status_id === statusFilter.value
 
     const contractYear = c.date_from ? String(new Date(c.date_from).getFullYear()) : null
     const yearMatch = yearFilter.value === 'all' || (contractYear && contractYear === yearFilter.value)
@@ -258,14 +280,22 @@ const filteredContracts = computed(() => {
   })
 })
 
-const activeContracts = computed(() => contracts.value.filter((c) => c.actual).length)
+const statusCountMap = computed(() => {
+  const map = {}
+  contracts.value.forEach((c) => {
+    if (c.contract_status_id !== null && c.contract_status_id !== undefined) {
+      map[c.contract_status_id] = (map[c.contract_status_id] || 0) + 1
+    }
+  })
+  return map
+})
 
 const expiringContracts = computed(() => {
   const today = new Date()
   const soon = new Date()
   soon.setDate(today.getDate() + 30)
   return contracts.value.filter((c) => {
-    if (!c.date_to || !c.actual) return false
+    if (!c.date_to) return false
     const endDate = new Date(c.date_to)
     return endDate >= today && endDate <= soon
   }).length
@@ -274,11 +304,12 @@ const expiringContracts = computed(() => {
 const fetchPage = async () => {
   loading.value = true
   try {
-    const [contractRows, personRows, organizationRows, typeRows] = await Promise.all([
+    const [contractRows, personRows, organizationRows, typeRows, statusRows] = await Promise.all([
       contractStore.getContracts(),
       responsiblePersonStore.getResponsiblePersons(),
       organizationStore.getOrganizations(),
       validityTypesStore.getValidityTypes(),
+      contractStatusStore.getStatuses(),
     ])
 
     contracts.value = Array.isArray(contractRows) ? contractRows : []
@@ -286,6 +317,7 @@ const fetchPage = async () => {
     respPersons.value = Array.isArray(personRows) ? personRows : []
     organizations.value = Array.isArray(organizationRows) ? organizationRows : []
     validityTypes.value = Array.isArray(typeRows) ? typeRows : []
+    contractStatuses.value = Array.isArray(statusRows) ? statusRows : []
   } catch (e) {
     console.error('Не удалось получить список договоров', e)
   } finally {

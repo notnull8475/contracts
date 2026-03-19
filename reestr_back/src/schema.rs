@@ -15,7 +15,28 @@ diesel::table! {
         contract_period -> Nullable<Int4>,
         created_time -> Nullable<Timestamptz>,
         updated_time -> Nullable<Timestamptz>,
-        actual -> Nullable<Bool>,
+        file_link -> Nullable<Text>,
+        contract_status_id -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    contract_files (id) {
+        id -> Int4,
+        contract_fk -> Int4,
+        file_name -> Text,
+        orig_name -> Text,
+        size_bytes -> Int8,
+        mime_type_txt -> Text,
+        created_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    dict_contract_status (id) {
+        id -> Int4,
+        name -> Text,
+        color -> Text,
     }
 }
 
@@ -73,28 +94,12 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(contract -> dict_contract_status (contract_status_id));
 diesel::joinable!(contract -> dict_type_of_validity (type_of_validity));
 diesel::joinable!(contract -> organization (organization_id));
 diesel::joinable!(contract -> responsible_person (responsible_person_id));
+diesel::joinable!(contract_files -> contract (contract_fk));
 diesel::joinable!(responsible_person -> users (user_id));
 
-diesel::table! {
-    contract_files (id) {
-        id -> Int4,
-        contract_fk -> Int4,
-        file_name -> Text,
-        orig_name -> Text,
-        size_bytes -> Int8,
-        mime_type_txt -> Text,
-        created_at -> Nullable<Timestamptz>,
-    }
-}
-
 diesel::allow_tables_to_appear_in_same_query!(
-    contract,
-    contract_files,
-    dict_type_of_validity,
-    organization,
-    responsible_person,
-    users,
-);
+    contract,contract_files,dict_contract_status,dict_type_of_validity,organization,responsible_person,users,);

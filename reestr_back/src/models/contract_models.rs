@@ -19,8 +19,10 @@ pub struct Contract {
     pub contract_period: Option<i32>,
     pub created_time: Option<NaiveDateTime>,
     pub updated_time: Option<NaiveDateTime>,
-    pub actual: Option<bool>,
+    pub file_link: Option<String>,
+    pub contract_status_id: Option<i32>,
 }
+
 #[derive(Insertable, AsChangeset, Serialize, Deserialize, Debug)]
 #[diesel(table_name = contract)]
 pub struct ContractDTO {
@@ -33,5 +35,7 @@ pub struct ContractDTO {
     pub responsible_person_id: Option<i32>,
     pub address: Option<String>,
     pub additional_agreement: Option<String>,
-    pub actual: Option<bool>,
+    pub comment: Option<String>,
+    pub file_link: Option<String>,
+    pub contract_status_id: Option<i32>,
 }
