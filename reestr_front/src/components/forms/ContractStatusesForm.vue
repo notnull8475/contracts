@@ -33,18 +33,21 @@
               </v-chip>
             </div>
 
-            <!-- Палитра -->
+            <!-- Палитра цветов -->
+            <p class="text-caption text-medium-emphasis mb-1">Выберите цвет:</p>
             <v-color-picker
               v-model="form.color"
-              mode="hex"
+              :swatches="colorSwatches"
+              show-swatches
+              hide-canvas
               hide-inputs
-              :modes="['hex']"
+              swatches-max-height="260"
               width="100%"
               elevation="0"
             />
 
             <v-btn
-              class="mt-4"
+              class="mt-3"
               color="primary"
               block
               :disabled="!form.name.trim()"
@@ -122,8 +125,20 @@ import { reactive } from 'vue'
 const props = defineProps(['modelValue', 'statusesOpt'])
 const emit = defineEmits(['update:modelValue', 'save', 'delete'])
 
-const form = reactive({ name: '', color: '#1976d2' })
+const form = reactive({ name: '', color: '#1976D2' })
 const errors = reactive({ name: '' })
+
+// Палитра: каждый вложенный массив — это колонка в сетке Vuetify swatches
+const colorSwatches = [
+  ['#B71C1C', '#880E4F', '#4A148C', '#0D47A1', '#006064'],
+  ['#C62828', '#AD1457', '#6A1B9A', '#1565C0', '#00838F'],
+  ['#E53935', '#E91E63', '#9C27B0', '#1976D2', '#00ACC1'],
+  ['#EF5350', '#F06292', '#CE93D8', '#64B5F6', '#4DD0E1'],
+  ['#1B5E20', '#F57F17', '#BF360C', '#3E2723', '#212121'],
+  ['#2E7D32', '#F9A825', '#D84315', '#4E342E', '#424242'],
+  ['#43A047', '#FDD835', '#F4511E', '#6D4C41', '#757575'],
+  ['#81C784', '#FFF176', '#FF8A65', '#A1887F', '#BDBDBD'],
+]
 
 function save() {
   errors.name = ''
@@ -133,6 +148,6 @@ function save() {
   }
   emit('save', { name: form.name.trim(), color: form.color || '#607d8b' })
   form.name = ''
-  form.color = '#1976d2'
+  form.color = '#1976D2'
 }
 </script>

@@ -2,7 +2,7 @@
   <v-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    max-width="480"
+    max-width="520"
   >
     <v-card rounded="lg">
       <v-card-title class="px-6 pt-5 pb-1">
@@ -21,21 +21,23 @@
           @keydown.enter="save"
         />
 
-        <!-- Превью чипа -->
+        <!-- Превью -->
         <div class="d-flex align-center ga-2 mb-3">
           <span class="text-body-2 text-medium-emphasis">Предпросмотр:</span>
           <v-chip :color="form.color" size="small" variant="tonal">
             {{ form.name.trim() || 'Статус' }}
           </v-chip>
-          <span class="text-caption text-medium-emphasis">{{ form.color }}</span>
         </div>
 
         <!-- Палитра -->
+        <p class="text-caption text-medium-emphasis mb-1">Выберите цвет:</p>
         <v-color-picker
           v-model="form.color"
-          mode="hex"
+          :swatches="colorSwatches"
+          show-swatches
+          hide-canvas
           hide-inputs
-          :modes="['hex']"
+          swatches-max-height="260"
           width="100%"
           elevation="0"
         />
@@ -58,13 +60,24 @@ import { reactive, watch } from 'vue'
 const props = defineProps(['modelValue', 'status'])
 const emit = defineEmits(['update:modelValue', 'save'])
 
-const form = reactive({ id: null, name: '', color: '#1976d2' })
+const form = reactive({ id: null, name: '', color: '#1976D2' })
 const errors = reactive({ name: '' })
+
+const colorSwatches = [
+  ['#B71C1C', '#880E4F', '#4A148C', '#0D47A1', '#006064'],
+  ['#C62828', '#AD1457', '#6A1B9A', '#1565C0', '#00838F'],
+  ['#E53935', '#E91E63', '#9C27B0', '#1976D2', '#00ACC1'],
+  ['#EF5350', '#F06292', '#CE93D8', '#64B5F6', '#4DD0E1'],
+  ['#1B5E20', '#F57F17', '#BF360C', '#3E2723', '#212121'],
+  ['#2E7D32', '#F9A825', '#D84315', '#4E342E', '#424242'],
+  ['#43A047', '#FDD835', '#F4511E', '#6D4C41', '#757575'],
+  ['#81C784', '#FFF176', '#FF8A65', '#A1887F', '#BDBDBD'],
+]
 
 watch(
   () => props.status,
   (val) => {
-    Object.assign(form, val || { id: null, name: '', color: '#1976d2' })
+    Object.assign(form, val || { id: null, name: '', color: '#1976D2' })
     errors.name = ''
   },
   { immediate: true },
