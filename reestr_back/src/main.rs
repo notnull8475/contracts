@@ -82,6 +82,13 @@ async fn main() -> std::io::Result<()> {
                                     .route("/delete/{user_id}", web::delete().to(handlers::users::del_user))
                                     .route("/get/list", web::get().to(handlers::users::get_users)),
                             )
+                            .service(
+                                web::scope("/contract-statuses")
+                                    .route("/list", web::get().to(handlers::contract_status_handler::list_statuses_req))
+                                    .route("/add", web::post().to(handlers::contract_status_handler::add_status_req))
+                                    .route("/update", web::post().to(handlers::contract_status_handler::update_status_req))
+                                    .route("/del/{status_id}", web::delete().to(handlers::contract_status_handler::del_status_req)),
+                            )
                     )
                     .service(
                         web::scope("/types/validity")
