@@ -3,3 +3,4 @@ pub mod models;
 pub mod organization_models;
 pub mod contract_models;
 pub mod contract_file_models;
+pub mod contract_status_models;

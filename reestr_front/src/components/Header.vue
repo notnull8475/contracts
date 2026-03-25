@@ -88,6 +88,7 @@ const navItems = computed(() => {
 
   if (role.value === 'admin') {
     items.push({ title: 'Пользователи', to: '/admin/users', icon: 'mdi-account-cog' })
+    items.push({ title: 'Статусы договоров', to: '/admin/contract-statuses', icon: 'mdi-tag-multiple' })
   }
 
   return items

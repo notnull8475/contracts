@@ -112,8 +112,29 @@
             <v-textarea v-model="form.comment" label="Комментарий" variant="outlined" density="comfortable" rows="2" auto-grow />
           </v-col>
 
-          <v-col cols="12">
-            <v-checkbox v-model="form.actual" label="Актуален" hide-details />
+          <v-col cols="12" md="6">
+            <v-select
+              v-model="form.contract_status_id"
+              :items="statusesOpt"
+              label="Статус"
+              item-title="name"
+              item-value="id"
+              variant="outlined"
+              density="comfortable"
+              clearable
+              placeholder="Не задан"
+            >
+              <template #selection="{ item }">
+                <v-chip :color="item.raw.color" size="small" variant="tonal">{{ item.title }}</v-chip>
+              </template>
+              <template #item="{ item, props: itemProps }">
+                <v-list-item v-bind="itemProps">
+                  <template #prepend>
+                    <v-chip :color="item.raw.color" size="x-small" class="mr-2" />
+                  </template>
+                </v-list-item>
+              </template>
+            </v-select>
           </v-col>
         </v-row>
 
@@ -254,9 +275,10 @@ const props = defineProps([
   'organizationsRaw',
   'respPersonsOpt',
   'validityTypesOpt',
+  'statusesOpt',
 ])
 const emit = defineEmits(['update:modelValue', 'save', 'delete', 'organization-added'])
-const { modelValue, contract, organizationsOpt, organizationsRaw, respPersonsOpt, validityTypesOpt } = toRefs(props)
+const { modelValue, contract, organizationsOpt, organizationsRaw, respPersonsOpt, validityTypesOpt, statusesOpt } = toRefs(props)
 
 const contractStore = ContractUtil()
 const organizationStore = OrganizationUtil()
@@ -274,7 +296,8 @@ const form = reactive({
   address: '',
   additional_agreement: '',
   comment: '',
-  actual: false,
+  contract_status_id: null,
+  file_link: null,
 })
 
 const newFile = ref(null)
@@ -372,7 +395,8 @@ watch(
         address: '',
         additional_agreement: '',
         comment: '',
-        actual: false,
+        contract_status_id: null,
+        file_link: null,
       },
     )
 
