@@ -1,0 +1,3 @@
+ALTER TABLE contract DROP COLUMN IF EXISTS pricelist_id;
+ALTER TABLE contract DROP COLUMN IF EXISTS price;
+DROP TABLE IF EXISTS dict_pricelist;

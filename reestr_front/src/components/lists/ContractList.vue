@@ -36,6 +36,23 @@
       {{ item.address || '---' }}
     </template>
 
+    <template #item.price="{ item }">
+      <span v-if="item.price !== null && item.price !== undefined">
+        {{ formatPrice(item.price) }}
+      </span>
+      <span v-else class="text-medium-emphasis text-caption">—</span>
+    </template>
+
+    <template #item.sa_count="{ item }">
+      <v-chip
+        size="small"
+        :color="(saCounts?.[item.id] || 0) > 0 ? 'success' : 'default'"
+        variant="tonal"
+      >
+        {{ (saCounts?.[item.id] || 0) > 0 ? saCounts[item.id] : '0' }}
+      </v-chip>
+    </template>
+
     <template #item.files="{ item }">
       <v-chip
         size="small"
@@ -76,6 +93,7 @@ const props = defineProps([
   'validityTypesOpt',
   'fileCounts',
   'statusesOpt',
+  'saCounts',
 ])
 defineEmits(['edit', 'files-click'])
 
@@ -87,8 +105,9 @@ const headers = [
   { title: 'Организация', key: 'organization_id', sortable: true },
   { title: 'Тип', key: 'type_of_validity', sortable: true },
   { title: 'Ответственный', key: 'responsible_person_id', sortable: true },
+  { title: 'Цена', key: 'price', sortable: true },
+  { title: 'Доп. согл.', key: 'sa_count', sortable: false },
   { title: 'Файлы', key: 'files', sortable: false },
-  { title: 'Адрес', key: 'address', sortable: false },
   { title: 'Статус', key: 'contract_status_id', sortable: true },
   { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
 ]
@@ -128,6 +147,12 @@ const validityTypeIdToName = computed(() => {
 function formatDate(value) {
   if (!value) return ''
   return new Date(value).toLocaleDateString()
+}
+
+function formatPrice(value) {
+  if (value === null || value === undefined) return '—'
+  const num = parseFloat(value)
+  return isNaN(num) ? '—' : num.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })
 }
 </script>
 

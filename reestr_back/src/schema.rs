@@ -17,6 +17,8 @@ diesel::table! {
         updated_time -> Nullable<Timestamptz>,
         file_link -> Nullable<Text>,
         contract_status_id -> Nullable<Int4>,
+        price -> Nullable<Numeric>,
+        pricelist_id -> Nullable<Int4>,
     }
 }
 
@@ -37,6 +39,15 @@ diesel::table! {
         id -> Int4,
         name -> Text,
         color -> Text,
+    }
+}
+
+diesel::table! {
+    dict_pricelist (id) {
+        id -> Int4,
+        name -> Text,
+        price -> Numeric,
+        updated_at -> Nullable<Timestamptz>,
     }
 }
 
@@ -80,6 +91,19 @@ diesel::table! {
 }
 
 diesel::table! {
+    supplementary_agreement (id) {
+        id -> Int4,
+        contract_id -> Int4,
+        number -> Nullable<Text>,
+        date_from -> Nullable<Timestamptz>,
+        description -> Nullable<Text>,
+        file_link -> Nullable<Text>,
+        price -> Nullable<Numeric>,
+        created_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Int4,
         #[max_length = 50]
@@ -95,11 +119,13 @@ diesel::table! {
 }
 
 diesel::joinable!(contract -> dict_contract_status (contract_status_id));
+diesel::joinable!(contract -> dict_pricelist (pricelist_id));
 diesel::joinable!(contract -> dict_type_of_validity (type_of_validity));
 diesel::joinable!(contract -> organization (organization_id));
 diesel::joinable!(contract -> responsible_person (responsible_person_id));
 diesel::joinable!(contract_files -> contract (contract_fk));
 diesel::joinable!(responsible_person -> users (user_id));
+diesel::joinable!(supplementary_agreement -> contract (contract_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    contract,contract_files,dict_contract_status,dict_type_of_validity,organization,responsible_person,users,);
+    contract,contract_files,dict_contract_status,dict_pricelist,dict_type_of_validity,organization,responsible_person,supplementary_agreement,users,);

@@ -31,11 +31,12 @@
 
           <v-col cols="12" md="4">
             <v-text-field
-              :model-value="form.contract_period ?? ''"
-              label="Срок действия (месяцев)"
+              v-model.number="form.contract_period"
+              label="Срок действия (мес.)"
+              type="number"
+              min="0"
               variant="outlined"
               density="comfortable"
-              readonly
             />
           </v-col>
 
@@ -110,6 +111,46 @@
 
           <v-col cols="12">
             <v-textarea v-model="form.comment" label="Комментарий" variant="outlined" density="comfortable" rows="2" auto-grow />
+          </v-col>
+
+          <v-col cols="12" md="4">
+            <v-select
+              v-model="form.pricelist_id"
+              :items="pricelistOpt"
+              label="Позиция прайса"
+              item-title="name"
+              item-value="id"
+              variant="outlined"
+              density="comfortable"
+              clearable
+              placeholder="Выберите..."
+              @update:model-value="onPricelistSelected"
+            >
+              <template #selection="{ item }">
+                {{ item.raw.name }} — {{ formatPrice(item.raw.price) }}
+              </template>
+              <template #item="{ item, props: itemProps }">
+                <v-list-item v-bind="itemProps">
+                  <template #append>
+                    <span class="text-caption text-medium-emphasis">{{ formatPrice(item.raw.price) }}</span>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-select>
+          </v-col>
+
+          <v-col cols="12" md="4">
+            <v-text-field
+              v-model.number="form.price"
+              label="Цена (₽)"
+              type="number"
+              step="0.01"
+              min="0"
+              variant="outlined"
+              density="comfortable"
+              :hint="isCustomPrice ? 'Спец. цена' : undefined"
+              persistent-hint
+            />
           </v-col>
 
           <v-col cols="12" md="6">
@@ -201,6 +242,47 @@
             <v-list-item-title class="text-medium-emphasis">Файлы в очередь не добавлены</v-list-item-title>
           </v-list-item>
         </v-list>
+
+        <v-divider class="my-3" />
+
+        <h4 class="text-subtitle-1 mb-2">Дополнительные соглашения</h4>
+
+        <v-btn
+          v-if="form.id"
+          size="small"
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-plus"
+          class="mb-2"
+          @click="openSupplementaryForm()"
+        >
+          Добавить соглашение
+        </v-btn>
+
+        <v-alert v-if="!form.id" type="info" variant="tonal" class="mb-2">
+          Доп соглашения можно добавить после сохранения договора.
+        </v-alert>
+
+        <v-list v-if="form.id" density="compact">
+          <v-list-item v-for="sa in supplementaryAgreements" :key="sa.id">
+            <template #prepend><v-icon>mdi-file-document-outline</v-icon></template>
+            <v-list-item-title>
+              {{ sa.number || 'Без номера' }}
+              <span v-if="sa.date_from"> от {{ formatDate(sa.date_from) }}</span>
+            </v-list-item-title>
+            <v-list-item-subtitle>
+              {{ sa.description || '—' }}
+              <span v-if="sa.price"> · {{ formatPrice(sa.price) }}</span>
+            </v-list-item-subtitle>
+            <template #append>
+              <v-btn icon="mdi-pencil" size="small" variant="text" @click="openSupplementaryForm(sa)" />
+              <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="removeSupplementaryAgreement(sa.id)" />
+            </template>
+          </v-list-item>
+          <v-list-item v-if="!supplementaryAgreements.length">
+            <v-list-item-title class="text-medium-emphasis">Нет доп соглашений</v-list-item-title>
+          </v-list-item>
+        </v-list>
       </v-card-text>
 
       <v-card-actions>
@@ -266,6 +348,7 @@
 import { computed, reactive, ref, toRefs, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts'
 import { OrganizationUtil } from '@/store/organizations'
+import { SupplementaryAgreementUtil } from '@/store/supplementaryAgreements'
 import { useToastStore } from '@/store/toast'
 
 const props = defineProps([
@@ -276,12 +359,14 @@ const props = defineProps([
   'respPersonsOpt',
   'validityTypesOpt',
   'statusesOpt',
+  'pricelistOpt',
 ])
-const emit = defineEmits(['update:modelValue', 'save', 'delete', 'organization-added'])
-const { modelValue, contract, organizationsOpt, organizationsRaw, respPersonsOpt, validityTypesOpt, statusesOpt } = toRefs(props)
+const emit = defineEmits(['update:modelValue', 'save', 'delete', 'organization-added', 'open-supplementary-form'])
+const { modelValue, contract, organizationsOpt, organizationsRaw, respPersonsOpt, validityTypesOpt, statusesOpt, pricelistOpt } = toRefs(props)
 
 const contractStore = ContractUtil()
 const organizationStore = OrganizationUtil()
+const saStore = SupplementaryAgreementUtil()
 const toast = useToastStore()
 
 const form = reactive({
@@ -298,6 +383,8 @@ const form = reactive({
   comment: '',
   contract_status_id: null,
   file_link: null,
+  price: null,
+  pricelist_id: null,
 })
 
 const newFile = ref(null)
@@ -307,6 +394,11 @@ const uploading = ref(false)
 const searchOrganization = ref('')
 const quickOrgDialog = ref(false)
 const quickOrgSaving = ref(false)
+const supplementaryAgreements = ref([])
+const supplementaryFormDialog = ref(false)
+const selectedSupplementary = ref(null)
+const isCustomPrice = ref(false)
+const periodChanging = ref(false)
 
 const quickOrg = reactive({
   short_name_with_opf: '',
@@ -374,13 +466,31 @@ const formattedDateTo = computed({
 watch(
   () => [form.date_from, form.date_to],
   () => {
+    if (periodChanging.value) { periodChanging.value = false; return }
     form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
+  },
+)
+
+watch(
+  () => form.contract_period,
+  (period) => {
+    if (!form.date_from || !period || period <= 0) return
+    const start = new Date(form.date_from)
+    const origDay = start.getDate()
+    start.setMonth(start.getMonth() + period)
+    // Корректировка: если день изменился из-за короткого месяца
+    if (start.getDate() < origDay) {
+      start.setDate(0) // последний день предыдущего месяца
+    }
+    periodChanging.value = true
+    form.date_to = start.toISOString().split('T')[0] + 'T00:00:00'
   },
 )
 
 watch(
   () => contract.value,
   (newVal) => {
+    isCustomPrice.value = false
     Object.assign(
       form,
       newVal || {
@@ -397,6 +507,8 @@ watch(
         comment: '',
         contract_status_id: null,
         file_link: null,
+        price: null,
+        pricelist_id: null,
       },
     )
 
@@ -405,8 +517,10 @@ watch(
 
     if (newVal?.id) {
       loadFiles(newVal.id)
+      loadSupplementaryAgreements(newVal.id)
     } else {
       files.value = []
+      supplementaryAgreements.value = []
     }
   },
   { immediate: true },
@@ -459,6 +573,52 @@ function resolveSelectedFile(fileInput) {
 
 function removePendingFile(index) {
   pendingFiles.value.splice(index, 1)
+}
+
+async function loadSupplementaryAgreements(contractId) {
+  try {
+    supplementaryAgreements.value = await saStore.getByContract(contractId)
+  } catch (e) {
+    console.error('Failed to load supplementary agreements:', e)
+  }
+}
+
+function openSupplementaryForm(agreement = null) {
+  selectedSupplementary.value = agreement ? { ...agreement } : null
+  emit('open-supplementary-form', { contractId: form.id, agreement: selectedSupplementary.value })
+}
+
+async function removeSupplementaryAgreement(id) {
+  try {
+    await saStore.delete(id)
+    supplementaryAgreements.value = supplementaryAgreements.value.filter((sa) => sa.id !== id)
+    toast.push('Соглашение удалено', 'success')
+  } catch (e) {
+    toast.push(e.message, 'error')
+  }
+}
+
+function onPricelistSelected(pricelistId) {
+  if (!pricelistId) {
+    isCustomPrice.value = true
+    return
+  }
+  const item = props.pricelistOpt?.find((p) => p.id === pricelistId)
+  if (item) {
+    form.price = parseFloat(item.price)
+    isCustomPrice.value = false
+  }
+}
+
+function formatDate(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleDateString()
+}
+
+function formatPrice(value) {
+  if (value === null || value === undefined) return '—'
+  const num = parseFloat(value)
+  return isNaN(num) ? '—' : num.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })
 }
 
 function openQuickOrganizationDialog() {

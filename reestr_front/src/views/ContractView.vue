@@ -14,6 +14,9 @@
           <v-btn color="secondary" variant="tonal" prepend-icon="mdi-tag-multiple" @click="statusesDialog = true">
             Статусы
           </v-btn>
+          <v-btn color="secondary" variant="tonal" prepend-icon="mdi-currency-rub" @click="pricelistDialog = true">
+            Прайс
+          </v-btn>
           <v-btn color="primary" prepend-icon="mdi-plus" @click="openForm()">Новый договор</v-btn>
         </div>
       </div>
@@ -109,6 +112,7 @@
         :validityTypesOpt="validityTypesOpt"
         :statusesOpt="contractStatuses"
         :fileCounts="fileCounts"
+        :saCounts="saCounts"
         @edit="openForm"
         @files-click="openContractFiles"
       />
@@ -123,9 +127,11 @@
     :organizationsRaw="organizations"
     :validityTypesOpt="validityTypesOpt"
     :statusesOpt="contractStatuses"
+    :pricelistOpt="pricelist"
     @save="saveContract"
     @delete="deleteContract"
     @organization-added="handleOrganizationAdded"
+    @open-supplementary-form="handleOpenSupplementaryForm"
   />
 
   <validity-types-form
@@ -140,6 +146,19 @@
     :statusesOpt="contractStatuses"
     @save="saveStatus"
     @delete="deleteStatus"
+  />
+
+  <pricelist-form
+    v-model="pricelistDialog"
+    :pricelistOpt="pricelist"
+    @save="savePricelistItem"
+    @delete="deletePricelistItem"
+  />
+
+  <supplementary-agreement-form
+    v-model="saDialog"
+    :agreement="selectedSupplementary"
+    @save="saveSupplementaryAgreement"
   />
 
   <v-dialog v-model="filesDialog" max-width="720">
@@ -183,6 +202,10 @@ import ValidityTypesForm from '@/components/forms/ValidityTypesForm.vue'
 import { ValidityTypesUtil } from '@/store/validityTypes.js'
 import { ContractStatusUtil } from '@/store/contractStatuses.js'
 import ContractStatusesForm from '@/components/forms/ContractStatusesForm.vue'
+import { PricelistUtil } from '@/store/pricelist.js'
+import PricelistForm from '@/components/forms/PricelistForm.vue'
+import { SupplementaryAgreementUtil } from '@/store/supplementaryAgreements.js'
+import SupplementaryAgreementForm from '@/components/forms/SupplementaryAgreementForm.vue'
 import { useToastStore } from '@/store/toast.js'
 
 const search = ref('')
@@ -200,6 +223,11 @@ const organizations = ref([])
 const respPersons = ref([])
 const validityTypes = ref([])
 const contractStatuses = ref([])
+const pricelist = ref([])
+const saCounts = ref({})
+const pricelistDialog = ref(false)
+const saDialog = ref(false)
+const selectedSupplementary = ref(null)
 const loading = ref(false)
 const yearFilter = ref('all')
 const statusFilter = ref(null)
@@ -210,6 +238,8 @@ const organizationStore = OrganizationUtil()
 const responsiblePersonStore = ResponsiblePersonUtil()
 const validityTypesStore = ValidityTypesUtil()
 const contractStatusStore = ContractStatusUtil()
+const pricelistStore = PricelistUtil()
+const saStore = SupplementaryAgreementUtil()
 const route = useRoute()
 const router = useRouter()
 const toast = useToastStore()
@@ -316,20 +346,23 @@ const expiringContracts = computed(() => {
 const fetchPage = async () => {
   loading.value = true
   try {
-    const [contractRows, personRows, organizationRows, typeRows, statusRows] = await Promise.all([
+    const [contractRows, personRows, organizationRows, typeRows, statusRows, pricelistRows] = await Promise.all([
       contractStore.getContracts(),
       responsiblePersonStore.getResponsiblePersons(),
       organizationStore.getOrganizations(),
       validityTypesStore.getValidityTypes(),
       contractStatusStore.getStatuses(),
+      pricelistStore.getList(),
     ])
 
     contracts.value = Array.isArray(contractRows) ? contractRows : []
     await fetchFileCounts()
+    await fetchSaCounts()
     respPersons.value = Array.isArray(personRows) ? personRows : []
     organizations.value = Array.isArray(organizationRows) ? organizationRows : []
     validityTypes.value = Array.isArray(typeRows) ? typeRows : []
     contractStatuses.value = Array.isArray(statusRows) ? statusRows : []
+    pricelist.value = Array.isArray(pricelistRows) ? pricelistRows : []
   } catch (e) {
     console.error('Не удалось получить список договоров', e)
   } finally {
@@ -353,6 +386,24 @@ async function fetchFileCounts() {
   })
 
   fileCounts.value = next
+}
+
+async function fetchSaCounts() {
+  const ids = contracts.value.map((contract) => contract.id).filter(Boolean)
+  if (!ids.length) {
+    saCounts.value = {}
+    return
+  }
+
+  const results = await Promise.allSettled(ids.map((id) => saStore.countByContract(id)))
+  const next = {}
+
+  ids.forEach((id, idx) => {
+    const result = results[idx]
+    next[id] = result.status === 'fulfilled' ? result.value : 0
+  })
+
+  saCounts.value = next
 }
 
 onMounted(fetchPage)
@@ -519,6 +570,51 @@ async function deleteContract(id) {
   } catch (e) {
     console.error('Ошибка удаления', e)
     alert(e.message)
+  }
+}
+
+async function savePricelistItem(dto) {
+  try {
+    const created = await pricelistStore.add(dto)
+    pricelist.value.push(created)
+    toast.push('Позиция добавлена', 'success')
+  } catch (e) {
+    toast.push(e.message || 'Ошибка добавления позиции', 'error')
+  }
+}
+
+async function deletePricelistItem(id) {
+  try {
+    await pricelistStore.delete(id)
+    pricelist.value = pricelist.value.filter((p) => p.id !== id)
+    toast.push('Позиция удалена', 'success')
+  } catch (e) {
+    toast.push(e.message || 'Ошибка удаления позиции', 'error')
+  }
+}
+
+function handleOpenSupplementaryForm({ contractId, agreement }) {
+  selectedSupplementary.value = agreement ? { ...agreement, contract_id: contractId } : { contract_id: contractId }
+  saDialog.value = true
+}
+
+async function saveSupplementaryAgreement(dto) {
+  try {
+    if (dto.id) {
+      const updated = await saStore.update(dto)
+      toast.push('Соглашение обновлено', 'success')
+    } else {
+      await saStore.add(dto)
+      toast.push('Соглашение добавлено', 'success')
+    }
+    saDialog.value = false
+    // Обновить количество соглашений
+    if (dto.contract_id) {
+      const count = await saStore.countByContract(dto.contract_id)
+      saCounts.value[dto.contract_id] = count
+    }
+  } catch (e) {
+    toast.push(e.message || 'Ошибка сохранения соглашения', 'error')
   }
 }
 

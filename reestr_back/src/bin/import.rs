@@ -34,8 +34,10 @@ diesel::table! {
         contract_period -> Nullable<Int4>,
         created_time -> Nullable<diesel::sql_types::Timestamptz>,
         updated_time -> Nullable<diesel::sql_types::Timestamptz>,
-        actual -> Nullable<Bool>,
         file_link -> Nullable<Text>,
+        contract_status_id -> Nullable<Int4>,
+        price -> Nullable<diesel::sql_types::Numeric>,
+        pricelist_id -> Nullable<Int4>,
     }
 }
 
@@ -77,8 +79,8 @@ struct ContractImport {
     responsible_person_id: Option<i32>,
     address: Option<String>,
     comment: Option<String>,
-    actual: Option<bool>,
     file_link: Option<String>,
+    contract_status_id: Option<i32>,
 }
 
 #[derive(Insertable, Debug)]
@@ -356,13 +358,14 @@ fn process_sheet(
     stats: &mut Stats,
     dry_run: bool,
 ) {
-    // Лист3 — расторгнутые → actual = false
-    let actual = sheet_name != "Лист3";
+    // Лист3 — расторгнутые → status_id = 4 (Расторгнут), остальные → null
+    let is_closed = sheet_name == "Лист3";
+    let sheet_status_id: Option<i32> = if is_closed { Some(4) } else { None };
 
     println!(
         "\n--- {} ({}) ---",
         sheet_name,
-        if actual { "актуальные" } else { "закрытые" }
+        if is_closed { "закрытые" } else { "актуальные" }
     );
 
     for row in rows {
@@ -496,20 +499,23 @@ fn process_sheet(
             responsible_person_id: person_id,
             address,
             comment,
-            actual: Some(actual),
             file_link,
+            contract_status_id: sheet_status_id,
         };
 
         let date_str = date_from
             .map(|d| d.format("%d.%m.%Y").to_string())
             .unwrap_or_else(|| "—".to_string());
 
+        let status_label = if is_closed { "Расторгнут" } else { "без статуса" };
+
         if dry_run {
             println!(
-                "  [dry] {:<25} | {:<40} | {}",
+                "  [dry] {:<25} | {:<40} | {} [{}]",
                 final_number,
                 effective_org.chars().take(40).collect::<String>(),
-                date_str
+                date_str,
+                status_label,
             );
             stats.contracts += 1;
             continue;
@@ -522,8 +528,8 @@ fn process_sheet(
             Ok(_) => {
                 let marker = if is_dup { " [дубл]" } else { "" };
                 println!(
-                    "  [ok] {}{} | {} | {}",
-                    final_number, marker, effective_org, date_str
+                    "  [ok] {}{} | {} | {} [{}]",
+                    final_number, marker, effective_org, date_str, status_label
                 );
                 stats.contracts += 1;
                 if is_dup {
