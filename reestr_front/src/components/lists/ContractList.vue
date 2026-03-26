@@ -3,10 +3,14 @@
     class="contract-table"
     :headers="headers"
     :items="contracts"
-    :items-per-page="15"
+    :items-per-page="serverMode ? serverPerPage : 15"
+    :server-items="serverMode ? serverItemsLength : undefined"
+    :page="serverMode ? serverPage : undefined"
+    :sort-by="serverMode ? serverSortBy : []"
     density="comfortable"
     fixed-header
     height="580"
+    @update:options="$emit('update:options', $event)"
   >
     <template #item.date_from="{ item }">
       {{ formatDate(item.date_from) || '---' }}
@@ -30,10 +34,6 @@
 
     <template #item.responsible_person_id="{ item }">
       {{ responsibleIdToName[item.responsible_person_id] || '---' }}
-    </template>
-
-    <template #item.address="{ item }">
-      {{ item.address || '---' }}
     </template>
 
     <template #item.price="{ item }">
@@ -94,8 +94,15 @@ const props = defineProps([
   'fileCounts',
   'statusesOpt',
   'saCounts',
+  // Server mode props
+  'serverMode',
+  'serverItemsLength',
+  'serverPage',
+  'serverPerPage',
+  'serverSortBy',
+  'serverSortOrder',
 ])
-defineEmits(['edit', 'files-click'])
+defineEmits(['edit', 'files-click', 'update:options'])
 
 const headers = [
   { title: 'Номер', key: 'number', sortable: true },
@@ -114,33 +121,25 @@ const headers = [
 
 const statusMap = computed(() => {
   const map = {}
-  props.statusesOpt?.forEach((s) => {
-    map[s.id] = s
-  })
+  props.statusesOpt?.forEach((s) => { map[s.id] = s })
   return map
 })
 
 const orgIdToName = computed(() => {
   const map = {}
-  props.organizationsOpt?.forEach((i) => {
-    map[i.id] = i.short_name_with_opf
-  })
+  props.organizationsOpt?.forEach((i) => { map[i.id] = i.short_name_with_opf })
   return map
 })
 
 const responsibleIdToName = computed(() => {
   const map = {}
-  props.respPersonsOpt?.forEach((i) => {
-    map[i.id] = i.lastname
-  })
+  props.respPersonsOpt?.forEach((i) => { map[i.id] = i.lastname })
   return map
 })
 
 const validityTypeIdToName = computed(() => {
   const map = {}
-  props.validityTypesOpt?.forEach((i) => {
-    map[i.id] = i.name
-  })
+  props.validityTypesOpt?.forEach((i) => { map[i.id] = i.name })
   return map
 })
 

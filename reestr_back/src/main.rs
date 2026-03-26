@@ -110,6 +110,8 @@ async fn main() -> std::io::Result<()> {
                             .route("/update", web::post().to(handlers::contracts_handler::update_contract_req))
                             .route("/del/{id}", web::delete().to(handlers::contracts_handler::del_contract_req))
                             .route("/list", web::get().to(handlers::contracts_handler::list_contract_req))
+                            .route("/paginated", web::get().to(handlers::contracts_handler::list_paginated_req))
+                            .route("/stats", web::get().to(handlers::contracts_handler::batch_stats_req))
                             .route("/get/{id}", web::get().to(handlers::contracts_handler::get_contract_req))
                             .route("/files/{contract_id}", web::post().to(handlers::contract_files_handler::upload_file))
                             .route("/files/{contract_id}", web::get().to(handlers::contract_files_handler::get_contract_files))
