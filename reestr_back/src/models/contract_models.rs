@@ -1,4 +1,5 @@
 use crate::schema::contract;
+use bigdecimal::BigDecimal;
 use chrono::NaiveDateTime;
 use diesel::{AsChangeset, Insertable, Queryable};
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,8 @@ pub struct Contract {
     pub updated_time: Option<NaiveDateTime>,
     pub file_link: Option<String>,
     pub contract_status_id: Option<i32>,
+    pub price: Option<BigDecimal>,
+    pub pricelist_id: Option<i32>,
 }
 
 #[derive(Insertable, AsChangeset, Serialize, Deserialize, Debug)]
@@ -38,4 +41,6 @@ pub struct ContractDTO {
     pub comment: Option<String>,
     pub file_link: Option<String>,
     pub contract_status_id: Option<i32>,
+    pub price: Option<BigDecimal>,
+    pub pricelist_id: Option<i32>,
 }

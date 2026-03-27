@@ -1,0 +1,1 @@
+ALTER TABLE contract ADD COLUMN IF NOT EXISTS file_link TEXT;

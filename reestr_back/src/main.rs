@@ -89,6 +89,13 @@ async fn main() -> std::io::Result<()> {
                                     .route("/update", web::post().to(handlers::contract_status_handler::update_status_req))
                                     .route("/del/{status_id}", web::delete().to(handlers::contract_status_handler::del_status_req)),
                             )
+                            .service(
+                                web::scope("/pricelist")
+                                    .route("/list", web::get().to(handlers::pricelist_handler::list_req))
+                                    .route("/add", web::post().to(handlers::pricelist_handler::add_req))
+                                    .route("/update", web::post().to(handlers::pricelist_handler::update_req))
+                                    .route("/del/{id}", web::delete().to(handlers::pricelist_handler::del_req)),
+                            )
                     )
                     .service(
                         web::scope("/types/validity")
@@ -108,6 +115,11 @@ async fn main() -> std::io::Result<()> {
                             .route("/files/{contract_id}", web::get().to(handlers::contract_files_handler::get_contract_files))
                             .route("/files/download/{file_id}", web::get().to(handlers::contract_files_handler::download_file))
                             .route("/files/delete/{file_id}", web::delete().to(handlers::contract_files_handler::delete_file))
+                            .route("/supplementary-agreements/{contract_id}", web::get().to(handlers::supplementary_agreement_handler::list_by_contract_req))
+                            .route("/supplementary-agreements/count/{contract_id}", web::get().to(handlers::supplementary_agreement_handler::count_by_contract_req))
+                            .route("/supplementary-agreements/add", web::post().to(handlers::supplementary_agreement_handler::add_req))
+                            .route("/supplementary-agreements/update", web::post().to(handlers::supplementary_agreement_handler::update_req))
+                            .route("/supplementary-agreements/del/{id}", web::delete().to(handlers::supplementary_agreement_handler::del_req))
                     )
                     .service(
                         web::scope("/organizations")
