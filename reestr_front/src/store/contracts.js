@@ -1,6 +1,7 @@
 // contracts.js
 import { defineStore } from 'pinia'
 import { useRequtil } from '@/store/util.js'
+import axios from '@/axios.js'
 
 const contractRequest = '/api/v1/contracts'
 
@@ -46,6 +47,16 @@ export const ContractUtil = defineStore('contract', {
         '',
         'Ошибка получения списка договоров',
       )
+    },
+    /// Пагинированный список с фильтрами
+    async getPaginatedContracts(params = {}) {
+      const res = await axios.get(`${contractRequest}/paginated`, { params })
+      return res.data
+    },
+    /// Batch счётчики файлов и доп соглашений
+    async getBatchStats() {
+      const res = await axios.get(`${contractRequest}/stats`)
+      return res.data
     },
     async uploadFile(contractId, file) {
       const requtil = useRequtil()

@@ -1,8 +1,11 @@
-use crate::models::contract_models::{Contract, ContractDTO};
+use crate::models::contract_models::{Contract, ContractDTO, ContractListDTO, ContractListParams, ContractStatsResponse, PaginatedContractsResponse};
 use crate::schema::contract;
 use crate::utils::db::establish_connection;
 use diesel::prelude::*;
+use diesel::sql_query;
+use diesel::sql_types::{BigInt, Integer, Nullable, Text, Timestamp, Timestamptz, Numeric};
 use diesel::{QueryDsl, RunQueryDsl};
+use std::collections::HashMap;
 
 pub async fn add_contract(contract: ContractDTO) -> Result<Contract, String> {
     let connection = &mut establish_connection();
@@ -36,6 +39,7 @@ pub async fn list_contract() -> Result<Vec<Contract>, String> {
         .get_results(connection)
         .map_err(|e| format!("Error to list contract: {}", e))
 }
+
 pub async fn get_contract(contract_id: i32) -> Result<Contract, String> {
     let connection = &mut establish_connection();
     contract::table
@@ -43,4 +47,189 @@ pub async fn get_contract(contract_id: i32) -> Result<Contract, String> {
         .select(contract::all_columns)
         .first(connection)
         .map_err(|e| format!("Error to get contract: {}", e))
+}
+
+// =============================================================================
+// Пагинированный список договоров с фильтрами
+// =============================================================================
+
+#[derive(QueryableByName)]
+struct CountResult {
+    #[diesel(sql_type = BigInt)]
+    total: i64,
+}
+
+#[derive(QueryableByName, Serialize)]
+struct ContractRow {
+    #[diesel(sql_type = Integer)]
+    id: i32,
+    #[diesel(sql_type = Text)]
+    number: String,
+    #[diesel(sql_type = Nullable<Timestamp>)]
+    date_from: Option<NaiveDateTime>,
+    #[diesel(sql_type = Nullable<Timestamptz>)]
+    date_to: Option<NaiveDateTime>,
+    #[diesel(sql_type = Nullable<Integer>)]
+    contract_period: Option<i32>,
+    #[diesel(sql_type = Integer)]
+    organization_id: i32,
+    #[diesel(sql_type = Nullable<Integer>)]
+    type_of_validity: Option<i32>,
+    #[diesel(sql_type = Nullable<Integer>)]
+    responsible_person_id: Option<i32>,
+    #[diesel(sql_type = Nullable<Numeric>)]
+    price: Option<bigdecimal::BigDecimal>,
+    #[diesel(sql_type = Nullable<Integer>)]
+    contract_status_id: Option<i32>,
+}
+
+use chrono::NaiveDateTime;
+use serde::Serialize;
+
+pub async fn list_contract_paginated(params: ContractListParams) -> Result<PaginatedContractsResponse, String> {
+    let conn = &mut establish_connection();
+
+    let page = params.page.unwrap_or(1).max(1);
+    let per_page = params.per_page.unwrap_or(50).clamp(10, 200);
+    let offset = (page - 1) * per_page;
+
+    // Строим WHERE clause
+    let mut conditions: Vec<String> = Vec::new();
+    let mut param_idx = 1;
+    let mut dyn_params: Vec<String> = Vec::new();
+
+    if let Some(ref search) = params.search {
+        if !search.is_empty() {
+            conditions.push(format!("number ILIKE ${}", param_idx));
+            dyn_params.push(format!("%{}%", search));
+            param_idx += 1;
+        }
+    }
+
+    if let Some(ref year) = params.year {
+        if year != "all" {
+            if let Ok(y) = year.parse::<i32>() {
+                conditions.push(format!("EXTRACT(YEAR FROM date_from) = ${}", param_idx));
+                dyn_params.push(y.to_string());
+                param_idx += 1;
+            }
+        }
+    }
+
+    if let Some(status) = params.status {
+        conditions.push(format!("contract_status_id = ${}", param_idx));
+        dyn_params.push(status.to_string());
+        param_idx += 1;
+    }
+
+    let where_clause = if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", conditions.join(" AND "))
+    };
+
+    // Sort
+    let sort_col = match params.sort_by.as_deref() {
+        Some("date_from") => "date_from",
+        Some("date_to") => "date_to",
+        Some("number") => "number",
+        Some("price") => "price",
+        Some("contract_status_id") => "contract_status_id",
+        Some("organization_id") => "organization_id",
+        _ => "id",
+    };
+    let sort_order = match params.sort_order.as_deref() {
+        Some("desc") => "DESC",
+        _ => "ASC",
+    };
+
+    // Считаем total
+    let count_sql = format!("SELECT COUNT(*) as total FROM contract {}", where_clause);
+    let total: i64 = sql_query(&count_sql)
+        .get_result::<CountResult>(conn)
+        .map(|r| r.total)
+        .unwrap_or(0);
+
+    // Получаем данные
+    let data_sql = format!(
+        "SELECT id, number, date_from, date_to, contract_period, \
+                organization_id, type_of_validity, responsible_person_id, \
+                price, contract_status_id \
+         FROM contract {} \
+         ORDER BY {} {} \
+         LIMIT {} OFFSET {}",
+        where_clause, sort_col, sort_order, per_page, offset
+    );
+
+    let rows: Vec<ContractRow> = sql_query(&data_sql)
+        .get_results(conn)
+        .map_err(|e| format!("Error listing contracts: {}", e))?;
+
+    let items: Vec<ContractListDTO> = rows
+        .into_iter()
+        .map(|r| ContractListDTO {
+            id: r.id,
+            number: r.number,
+            date_from: r.date_from,
+            date_to: r.date_to,
+            contract_period: r.contract_period,
+            organization_id: r.organization_id,
+            type_of_validity: r.type_of_validity,
+            responsible_person_id: r.responsible_person_id,
+            price: r.price,
+            contract_status_id: r.contract_status_id,
+        })
+        .collect();
+
+    Ok(PaginatedContractsResponse {
+        items,
+        total,
+        page,
+        per_page,
+    })
+}
+
+// =============================================================================
+// Batch счётчики: файлы + доп соглашения для всех договоров
+// =============================================================================
+
+#[derive(QueryableByName)]
+struct IdCountRow {
+    #[diesel(sql_type = Integer)]
+    contract_id: i32,
+    #[diesel(sql_type = BigInt)]
+    cnt: i64,
+}
+
+pub async fn batch_stats() -> Result<ContractStatsResponse, String> {
+    let conn = &mut establish_connection();
+
+    // Файлы: GROUP BY contract_fk
+    let file_rows: Vec<IdCountRow> = sql_query(
+        "SELECT contract_fk as contract_id, COUNT(*) as cnt FROM contract_files GROUP BY contract_fk"
+    )
+    .get_results(conn)
+    .unwrap_or_default();
+
+    // Доп соглашения: GROUP BY contract_id
+    let sa_rows: Vec<IdCountRow> = sql_query(
+        "SELECT contract_id as contract_id, COUNT(*) as cnt FROM supplementary_agreement GROUP BY contract_id"
+    )
+    .get_results(conn)
+    .unwrap_or_default();
+
+    let mut files_map = HashMap::new();
+    for row in file_rows {
+        files_map.insert(row.contract_id, row.cnt);
+    }
+
+    let mut sa_map = HashMap::new();
+    for row in sa_rows {
+        sa_map.insert(row.contract_id, row.cnt);
+    }
+
+    Ok(ContractStatsResponse {
+        files: files_map,
+        supplementary: sa_map,
+    })
 }
