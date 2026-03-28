@@ -13,6 +13,10 @@
     height="580"
     @update:options="$emit('update:options', $event)"
   >
+    <template #item.row_number="{ index }">
+      {{ index + 1 }}
+    </template>
+
     <template #item.date_from="{ item }">
       {{ formatDate(item.date_from) || '---' }}
     </template>
@@ -107,6 +111,7 @@ const props = defineProps([
 defineEmits(['edit', 'files-click', 'update:options'])
 
 const headers = [
+  { title: '#', key: 'row_number', sortable: false, width: '50px' },
   { title: 'Номер', key: 'number', sortable: true },
   { title: 'Дата начала', key: 'date_from', sortable: true },
   { title: 'Дата окончания', key: 'date_to', sortable: true },
