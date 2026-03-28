@@ -94,6 +94,7 @@
       :serverPerPage="perPage"
       :serverSortBy="sortBy"
       :serverSortOrder="sortOrder"
+      :itemsPerPageOptions="itemsPerPageOptions"
       @edit="openForm"
       @files-click="openContractFiles"
       @update:options="onTableOptionsChange"
@@ -207,6 +208,12 @@ const currentPage = ref(1)
 const perPage = ref(50)
 const sortBy = ref([])
 const sortOrder = ref('asc')
+const itemsPerPageOptions = [
+  { value: 50, title: '50' },
+  { value: 100, title: '100' },
+  { value: 200, title: '200' },
+  { value: 0, title: 'Все' },
+]
 
 // Stats
 const fileCounts = ref({})

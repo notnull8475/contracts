@@ -90,36 +90,37 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
     let conn = &mut establish_connection();
 
     let page = params.page.unwrap_or(1).max(1);
-    let per_page = params.per_page.unwrap_or(50).clamp(10, 200);
+    // per_page = 0 означает "все" (без LIMIT)
+    let per_page_raw = params.per_page.unwrap_or(50);
+    let show_all = per_page_raw == 0;
+    let per_page = if show_all { 0i64 } else { per_page_raw.clamp(10, 10000) };
     let offset = (page - 1) * per_page;
 
-    // Строим WHERE clause
+    // Строим WHERE clause — прямая интерполяция (без $N placeholders)
     let mut conditions: Vec<String> = Vec::new();
-    let mut param_idx = 1;
-    let mut dyn_params: Vec<String> = Vec::new();
 
     if let Some(ref search) = params.search {
         if !search.is_empty() {
-            conditions.push(format!("number ILIKE ${}", param_idx));
-            dyn_params.push(format!("%{}%", search));
-            param_idx += 1;
+            // Экранируем одинарные кавычки для SQL-безопасности
+            let safe_search = search.replace('\'', "''");
+            conditions.push(format!("number ILIKE '%{}%'", safe_search));
         }
     }
 
     if let Some(ref year) = params.year {
         if year != "all" {
             if let Ok(y) = year.parse::<i32>() {
-                conditions.push(format!("EXTRACT(YEAR FROM date_from) = ${}", param_idx));
-                dyn_params.push(y.to_string());
-                param_idx += 1;
+                if (2000..=2100).contains(&y) {
+                    conditions.push(format!("EXTRACT(YEAR FROM date_from)::integer = {}", y));
+                }
             }
         }
     }
 
     if let Some(status) = params.status {
-        conditions.push(format!("contract_status_id = ${}", param_idx));
-        dyn_params.push(status.to_string());
-        param_idx += 1;
+        if status > 0 {
+            conditions.push(format!("contract_status_id = {}", status));
+        }
     }
 
     let where_clause = if conditions.is_empty() {
@@ -128,7 +129,7 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
         format!("WHERE {}", conditions.join(" AND "))
     };
 
-    // Sort
+    // Sort — только из whitelist
     let sort_col = match params.sort_by.as_deref() {
         Some("date_from") => "date_from",
         Some("date_to") => "date_to",
@@ -151,14 +152,20 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
         .unwrap_or(0);
 
     // Получаем данные
+    let limit_clause = if show_all {
+        String::new()
+    } else {
+        format!("LIMIT {} OFFSET {}", per_page, offset)
+    };
+
     let data_sql = format!(
         "SELECT id, number, date_from, date_to, contract_period, \
                 organization_id, type_of_validity, responsible_person_id, \
                 price, contract_status_id \
          FROM contract {} \
          ORDER BY {} {} \
-         LIMIT {} OFFSET {}",
-        where_clause, sort_col, sort_order, per_page, offset
+         {}",
+        where_clause, sort_col, sort_order, limit_clause
     );
 
     let rows: Vec<ContractRow> = sql_query(&data_sql)

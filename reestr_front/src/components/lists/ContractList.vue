@@ -4,6 +4,7 @@
     :headers="headers"
     :items="contracts"
     :items-per-page="serverMode ? serverPerPage : 15"
+    :items-per-page-options="serverMode ? itemsPerPageOptions : [15, 30, 50]"
     :server-items="serverMode ? serverItemsLength : undefined"
     :page="serverMode ? serverPage : undefined"
     :sort-by="serverMode ? serverSortBy : []"
@@ -101,6 +102,7 @@ const props = defineProps([
   'serverPerPage',
   'serverSortBy',
   'serverSortOrder',
+  'itemsPerPageOptions',
 ])
 defineEmits(['edit', 'files-click', 'update:options'])
 
