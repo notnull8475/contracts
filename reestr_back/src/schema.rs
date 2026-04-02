@@ -31,6 +31,7 @@ diesel::table! {
         size_bytes -> Int8,
         mime_type_txt -> Text,
         created_at -> Nullable<Timestamptz>,
+        file_type -> Text,
     }
 }
 
