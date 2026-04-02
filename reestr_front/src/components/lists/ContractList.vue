@@ -10,7 +10,6 @@
     :sort-by="serverMode ? serverSortBy : []"
     density="comfortable"
     fixed-header
-    height="580"
     @update:options="$emit('update:options', $event)"
   >
     <template #item.row_number="{ index }">

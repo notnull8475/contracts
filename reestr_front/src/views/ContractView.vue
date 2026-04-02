@@ -32,7 +32,6 @@
           density="comfortable"
           hide-details
           clearable
-          style="max-width: 260px"
           @update:model-value="onSearchDebounced"
         />
         <v-select
@@ -42,7 +41,6 @@
           density="comfortable"
           hide-details
           variant="outlined"
-          style="max-width: 180px"
           @update:model-value="onFilterChange"
         />
         <v-select
@@ -53,7 +51,6 @@
           hide-details
           variant="outlined"
           clearable
-          style="max-width: 240px"
           @update:model-value="onFilterChange"
         >
           <template #selection="{ item }">

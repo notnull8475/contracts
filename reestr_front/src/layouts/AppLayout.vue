@@ -3,7 +3,7 @@
     <Header />
 
     <v-main class="registry-main">
-      <v-container class="py-6" max-width="1400">
+      <v-container class="py-6 px-4 px-md-6" fluid>
         <router-view />
       </v-container>
     </v-main>
