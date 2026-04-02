@@ -74,6 +74,7 @@ pub struct PaginatedContractsResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ContractStatsResponse {
     pub files: std::collections::HashMap<i32, i64>,
+    pub upd: std::collections::HashMap<i32, i64>,
     pub supplementary: std::collections::HashMap<i32, i64>,
 }
 

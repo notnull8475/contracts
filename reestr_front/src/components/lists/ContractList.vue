@@ -70,6 +70,18 @@
       </v-chip>
     </template>
 
+    <template #item.upd_count="{ item }">
+      <v-chip
+        size="small"
+        :color="(updCounts?.[item.id] || 0) > 0 ? 'warning' : 'default'"
+        variant="tonal"
+        class="cursor-pointer"
+        @click="$emit('upd-click', item)"
+      >
+        {{ (updCounts?.[item.id] || 0) > 0 ? updCounts[item.id] : '0' }}
+      </v-chip>
+    </template>
+
     <template #item.contract_status_id="{ item }">
       <v-chip
         v-if="statusMap[item.contract_status_id]"
@@ -97,6 +109,7 @@ const props = defineProps([
   'organizationsOpt',
   'validityTypesOpt',
   'fileCounts',
+  'updCounts',
   'statusesOpt',
   'saCounts',
   // Server mode props
@@ -108,7 +121,7 @@ const props = defineProps([
   'serverSortOrder',
   'itemsPerPageOptions',
 ])
-defineEmits(['edit', 'files-click', 'update:options'])
+defineEmits(['edit', 'files-click', 'upd-click', 'update:options'])
 
 const headers = [
   { title: '#', key: 'row_number', sortable: false, width: '50px' },
@@ -122,6 +135,7 @@ const headers = [
   { title: 'Цена', key: 'price', sortable: true },
   { title: 'Доп. согл.', key: 'sa_count', sortable: false },
   { title: 'Файлы', key: 'files', sortable: false },
+  { title: 'УПД', key: 'upd_count', sortable: false },
   { title: 'Статус', key: 'contract_status_id', sortable: true },
   { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
 ]

@@ -26,6 +26,7 @@ pub async fn save_file(
     file_data: Vec<u8>,
     original_name: String,
     mime_type: String,
+    ftype: String,
 ) -> Result<ContractFileResponse, String> {
     let conn = &mut establish_connection();
 
@@ -45,6 +46,7 @@ pub async fn save_file(
         orig_name: original_name,
         size_bytes: file_size,
         mime_type_txt: mime_type,
+        file_type: ftype,
     };
 
     let result = diesel::insert_into(contract_files)
@@ -55,11 +57,12 @@ pub async fn save_file(
     Ok(result.into())
 }
 
-pub async fn get_files_by_contract(contract_id: i32) -> Result<Vec<ContractFileResponse>, String> {
+pub async fn get_files_by_contract(contract_id: i32, ftype: &str) -> Result<Vec<ContractFileResponse>, String> {
     let conn = &mut establish_connection();
 
     let files = contract_files
         .filter(contract_fk.eq(contract_id))
+        .filter(file_type.eq(ftype))
         .order(created_at.desc())
         .load::<ContractFile>(conn)
         .map_err(|e| format!("Failed to load files: {}", e))?;

@@ -211,9 +211,16 @@ struct IdCountRow {
 pub async fn batch_stats() -> Result<ContractStatsResponse, String> {
     let conn = &mut establish_connection();
 
-    // Файлы: GROUP BY contract_fk
+    // Файлы (тип contract): GROUP BY contract_fk
     let file_rows: Vec<IdCountRow> = sql_query(
-        "SELECT contract_fk as contract_id, COUNT(*) as cnt FROM contract_files GROUP BY contract_fk"
+        "SELECT contract_fk as contract_id, COUNT(*) as cnt FROM contract_files WHERE file_type = 'contract' GROUP BY contract_fk"
+    )
+    .get_results(conn)
+    .unwrap_or_default();
+
+    // УПД (тип upd): GROUP BY contract_fk
+    let upd_rows: Vec<IdCountRow> = sql_query(
+        "SELECT contract_fk as contract_id, COUNT(*) as cnt FROM contract_files WHERE file_type = 'upd' GROUP BY contract_fk"
     )
     .get_results(conn)
     .unwrap_or_default();
@@ -230,6 +237,11 @@ pub async fn batch_stats() -> Result<ContractStatsResponse, String> {
         files_map.insert(row.contract_id, row.cnt);
     }
 
+    let mut upd_map = HashMap::new();
+    for row in upd_rows {
+        upd_map.insert(row.contract_id, row.cnt);
+    }
+
     let mut sa_map = HashMap::new();
     for row in sa_rows {
         sa_map.insert(row.contract_id, row.cnt);
@@ -237,6 +249,7 @@ pub async fn batch_stats() -> Result<ContractStatsResponse, String> {
 
     Ok(ContractStatsResponse {
         files: files_map,
+        upd: upd_map,
         supplementary: sa_map,
     })
 }

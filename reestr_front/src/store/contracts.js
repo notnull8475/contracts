@@ -58,26 +58,18 @@ export const ContractUtil = defineStore('contract', {
       const res = await axios.get(`${contractRequest}/stats`)
       return res.data
     },
-    async uploadFile(contractId, file) {
-      const requtil = useRequtil()
-      return requtil.makeUploadRequest(
-        contractRequest + '/files/',
-        contractId,
-        file,
-        'Ошибка загрузки файла',
-      )
+    async uploadFile(contractId, file, fileType = 'contract') {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await axios.post(`${contractRequest}/files/${contractId}?file_type=${fileType}`, formData)
+      return res.data
     },
-    async getContractFiles(contractId) {
-      const requtil = useRequtil()
-      return requtil.makeGetRequest(
-        contractRequest + '/files/',
-        contractId,
-        'Ошибка получения файлов',
-      )
+    async getContractFiles(contractId, fileType = 'contract') {
+      const res = await axios.get(`${contractRequest}/files/${contractId}?file_type=${fileType}`)
+      return res.data
     },
     async downloadFile(fileId) {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-      window.open(`${baseUrl}/api/v1/contracts/files/download/${fileId}`, '_blank')
+      window.open(`/api/v1/contracts/files/download/${fileId}`, '_blank')
     },
     async deleteFile(fileId) {
       const requtil = useRequtil()

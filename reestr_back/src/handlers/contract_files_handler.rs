@@ -1,15 +1,28 @@
 use actix_web::{web, HttpResponse, Error};
 use actix_multipart::Multipart;
 use futures_util::TryStreamExt;
+use serde::Deserialize;
 use std::io::Write;
 
 use crate::services::contract_files as file_service;
 
+#[derive(Deserialize)]
+pub struct FileTypeParam {
+    #[serde(default = "default_file_type")]
+    pub file_type: String,
+}
+
+fn default_file_type() -> String {
+    "contract".to_string()
+}
+
 pub async fn upload_file(
     mut payload: Multipart,
     contract_id: web::Path<i32>,
+    query: web::Query<FileTypeParam>,
 ) -> Result<HttpResponse, Error> {
     let contract_id = contract_id.into_inner();
+    let ftype = query.file_type.clone();
 
     while let Some(item) = payload.try_next().await.map_err(|e| {
         actix_web::error::ErrorBadRequest(e.to_string())
@@ -35,7 +48,7 @@ pub async fn upload_file(
             })?;
         }
 
-        match file_service::save_file(contract_id, file_data, filename, mime_type).await {
+        match file_service::save_file(contract_id, file_data, filename, mime_type, ftype).await {
             Ok(file) => {
                 return Ok(HttpResponse::Ok().json(file));
             }
@@ -54,10 +67,12 @@ pub async fn upload_file(
 
 pub async fn get_contract_files(
     contract_id: web::Path<i32>,
+    query: web::Query<FileTypeParam>,
 ) -> Result<HttpResponse, Error> {
     let contract_id = contract_id.into_inner();
+    let ftype = &query.file_type;
 
-    match file_service::get_files_by_contract(contract_id).await {
+    match file_service::get_files_by_contract(contract_id, ftype).await {
         Ok(files) => Ok(HttpResponse::Ok().json(files)),
         Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
             "error": e

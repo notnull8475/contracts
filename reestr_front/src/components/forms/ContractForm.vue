@@ -245,6 +245,70 @@
 
         <v-divider class="my-3" />
 
+        <h4 class="text-subtitle-1 mb-2">УПД (счета-фактуры, акты)</h4>
+
+        <v-row dense>
+          <v-col cols="12" md="9">
+            <v-file-input
+              v-model="newUpdFile"
+              label="Выберите файл УПД"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+              prepend-icon="mdi-file-document-outline"
+              :loading="uploadingUpd"
+              variant="outlined"
+              density="comfortable"
+              show-size
+              clearable
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-btn
+              block
+              color="warning"
+              :disabled="!selectedUploadUpdFile || uploadingUpd"
+              :loading="uploadingUpd"
+              @click="handleUpdUpload"
+            >
+              {{ form.id ? 'Загрузить УПД' : 'Добавить УПД' }}
+            </v-btn>
+          </v-col>
+        </v-row>
+
+        <v-alert v-if="!form.id" type="info" variant="tonal" class="mb-2">
+          УПД добавляются в очередь и загрузятся после сохранения договора.
+        </v-alert>
+
+        <v-list v-if="form.id" density="compact">
+          <v-list-item v-for="file in updFiles" :key="file.id">
+            <template #prepend><v-icon color="warning">mdi-file-document-outline</v-icon></template>
+            <v-list-item-title>{{ file.original_name }}</v-list-item-title>
+            <v-list-item-subtitle>{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
+            <template #append>
+              <v-btn icon="mdi-download" size="small" variant="text" @click="downloadFile(file.id)" />
+              <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="removeUpdFile(file.id)" />
+            </template>
+          </v-list-item>
+          <v-list-item v-if="!updFiles.length">
+            <v-list-item-title class="text-medium-emphasis">УПД не прикреплены</v-list-item-title>
+          </v-list-item>
+        </v-list>
+
+        <v-list v-else density="compact">
+          <v-list-item v-for="(file, idx) in pendingUpdFiles" :key="`${file.name}-${idx}`">
+            <template #prepend><v-icon color="warning">mdi-file-plus</v-icon></template>
+            <v-list-item-title>{{ file.name }}</v-list-item-title>
+            <v-list-item-subtitle>{{ formatFileSize(file.size) }}</v-list-item-subtitle>
+            <template #append>
+              <v-btn icon="mdi-close" size="small" variant="text" color="error" @click="removePendingUpdFile(idx)" />
+            </template>
+          </v-list-item>
+          <v-list-item v-if="!pendingUpdFiles.length">
+            <v-list-item-title class="text-medium-emphasis">УПД в очередь не добавлены</v-list-item-title>
+          </v-list-item>
+        </v-list>
+
+        <v-divider class="my-3" />
+
         <h4 class="text-subtitle-1 mb-2">Дополнительные соглашения</h4>
 
         <v-btn
@@ -391,6 +455,10 @@ const newFile = ref(null)
 const files = ref([])
 const pendingFiles = ref([])
 const uploading = ref(false)
+const newUpdFile = ref(null)
+const updFiles = ref([])
+const pendingUpdFiles = ref([])
+const uploadingUpd = ref(false)
 const searchOrganization = ref('')
 const quickOrgDialog = ref(false)
 const quickOrgSaving = ref(false)
@@ -444,6 +512,7 @@ const orgAutocompleteItems = computed(() =>
 )
 
 const selectedUploadFile = computed(() => resolveSelectedFile(newFile.value))
+const selectedUploadUpdFile = computed(() => resolveSelectedFile(newUpdFile.value))
 
 const formattedDateFrom = computed({
   get() {
@@ -517,6 +586,7 @@ watch(
 
     if (newVal?.id) {
       loadFiles(newVal.id)
+      loadUpdFiles(newVal.id)
       loadSupplementaryAgreements(newVal.id)
     } else {
       files.value = []
@@ -573,6 +643,56 @@ function resolveSelectedFile(fileInput) {
 
 function removePendingFile(index) {
   pendingFiles.value.splice(index, 1)
+}
+
+async function loadUpdFiles(contractId) {
+  try {
+    updFiles.value = await contractStore.getContractFiles(contractId, 'upd')
+  } catch (e) {
+    console.error('Failed to load UPD files:', e)
+  }
+}
+
+async function handleUpdUpload() {
+  const file = selectedUploadUpdFile.value
+
+  if (!file) {
+    toast.push('Сначала выберите файл УПД', 'error')
+    return
+  }
+
+  if (form.id) {
+    uploadingUpd.value = true
+    try {
+      const uploadedFile = await contractStore.uploadFile(form.id, file, 'upd')
+      updFiles.value.push(uploadedFile)
+      toast.push('УПД загружен', 'success')
+    } catch (e) {
+      toast.push(e.message, 'error')
+    } finally {
+      uploadingUpd.value = false
+      newUpdFile.value = null
+    }
+    return
+  }
+
+  pendingUpdFiles.value.push(file)
+  newUpdFile.value = null
+  toast.push('УПД добавлен в очередь', 'success')
+}
+
+function removePendingUpdFile(index) {
+  pendingUpdFiles.value.splice(index, 1)
+}
+
+async function removeUpdFile(fileId) {
+  try {
+    await contractStore.deleteFile(fileId)
+    updFiles.value = updFiles.value.filter((f) => f.id !== fileId)
+    toast.push('УПД удален', 'success')
+  } catch (e) {
+    toast.push(e.message, 'error')
+  }
 }
 
 async function loadSupplementaryAgreements(contractId) {
@@ -714,7 +834,11 @@ function save() {
     contract_period: calculateContractPeriod(form.date_from, form.date_to),
   }
 
-  emit('save', { contract: payload, pendingFiles: [...pendingFiles.value] })
+  emit('save', {
+    contract: payload,
+    pendingFiles: [...pendingFiles.value],
+    pendingUpdFiles: [...pendingUpdFiles.value],
+  })
   emit('update:modelValue', false)
 }
 

@@ -87,6 +87,7 @@
       :validityTypesOpt="validityTypesOpt"
       :statusesOpt="contractStatuses"
       :fileCounts="fileCounts"
+      :updCounts="updCounts"
       :saCounts="saCounts"
       :serverMode="true"
       :serverItemsLength="totalContracts"
@@ -97,6 +98,7 @@
       :itemsPerPageOptions="itemsPerPageOptions"
       @edit="openForm"
       @files-click="openContractFiles"
+      @upd-click="openContractUpdFiles"
       @update:options="onTableOptionsChange"
     />
   </v-card>
@@ -170,6 +172,34 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <v-dialog v-model="updDialog" max-width="720">
+    <v-card rounded="lg">
+      <v-card-title>УПД договора</v-card-title>
+      <v-card-text>
+        <v-progress-linear v-if="updDialogLoading" indeterminate color="primary" class="mb-3" />
+
+        <v-alert v-else-if="!selectedContractUpdFiles.length" type="info" variant="tonal">
+          У договора нет прикрепленных УПД.
+        </v-alert>
+
+        <v-list v-else density="comfortable">
+          <v-list-item v-for="file in selectedContractUpdFiles" :key="file.id" @click="downloadFile(file.id)">
+            <template #prepend><v-icon>mdi-file-document-outline</v-icon></template>
+            <v-list-item-title>{{ file.original_name }}</v-list-item-title>
+            <v-list-item-subtitle>{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
+            <template #append>
+              <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadFile(file.id)" />
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn text @click="updDialog = false">Закрыть</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
@@ -217,6 +247,7 @@ const itemsPerPageOptions = [
 
 // Stats
 const fileCounts = ref({})
+const updCounts = ref({})
 const saCounts = ref({})
 
 // Lookup data
@@ -229,7 +260,10 @@ const pricelist = ref([])
 // Dialogs
 const pricelistDialog = ref(false)
 const saDialog = ref(false)
+const updDialog = ref(false)
+const updDialogLoading = ref(false)
 const selectedSupplementary = ref(null)
+const selectedContractUpdFiles = ref([])
 
 // Loading
 const loading = ref(false)
@@ -303,6 +337,7 @@ async function fetchContracts() {
     // Batch stats
     const stats = await contractStore.getBatchStats()
     fileCounts.value = stats.files || {}
+    updCounts.value = stats.upd || {}
     saCounts.value = stats.supplementary || {}
   } catch (e) {
     console.error('Ошибка загрузки договоров:', e)
@@ -392,6 +427,7 @@ function openTypeForm(type = null) {
 async function saveContract(payload) {
   const contract = { ...(payload?.contract ?? payload) }
   const pendingFiles = Array.isArray(payload?.pendingFiles) ? payload.pendingFiles : []
+  const pendingUpdFiles = Array.isArray(payload?.pendingUpdFiles) ? payload.pendingUpdFiles : []
 
   contract.number = contract.number?.trim() ? contract.number.trim() : `б/н ${new Date().toISOString().slice(0, 10)}`
   contract.organization_id = contract.organization_id || (await ensureOrganizationIdForIncompleteContract())
@@ -400,6 +436,7 @@ async function saveContract(payload) {
     if (contract.id) {
       await contractStore.updateContract(contract)
       if (pendingFiles.length) await uploadPendingFiles(contract.id, pendingFiles)
+      if (pendingUpdFiles.length) await uploadPendingUpdFiles(contract.id, pendingUpdFiles)
       dialog.value = false
       await fetchContracts()
       return
@@ -412,6 +449,10 @@ async function saveContract(payload) {
       await uploadPendingFiles(contractId, pendingFiles)
     } else if (!contractId && pendingFiles.length) {
       toast.push('Договор сохранен, но не удалось определить ID для загрузки файлов', 'error')
+    }
+
+    if (contractId && pendingUpdFiles.length) {
+      await uploadPendingUpdFiles(contractId, pendingUpdFiles)
     }
 
     dialog.value = false
@@ -439,11 +480,19 @@ async function ensureOrganizationIdForIncompleteContract() {
 }
 
 async function uploadPendingFiles(contractId, files) {
-  const results = await Promise.allSettled(files.map((file) => contractStore.uploadFile(contractId, file)))
+  const results = await Promise.allSettled(files.map((file) => contractStore.uploadFile(contractId, file, 'contract')))
   const ok = results.filter((r) => r.status === 'fulfilled').length
   const fail = results.length - ok
   if (ok) toast.push(`Загружено файлов: ${ok}`, 'success')
   if (fail) toast.push(`Не удалось загрузить файлов: ${fail}`, 'error')
+}
+
+async function uploadPendingUpdFiles(contractId, files) {
+  const results = await Promise.allSettled(files.map((file) => contractStore.uploadFile(contractId, file, 'upd')))
+  const ok = results.filter((r) => r.status === 'fulfilled').length
+  const fail = results.length - ok
+  if (ok) toast.push(`Загружено УПД: ${ok}`, 'success')
+  if (fail) toast.push(`Не удалось загрузить УПД: ${fail}`, 'error')
 }
 
 async function saveType(type) {
@@ -506,12 +555,23 @@ function handleOrganizationAdded(organization) {
 async function openContractFiles(contract) {
   filesDialogLoading.value = true; selectedContractFiles.value = []
   try {
-    const files = await contractStore.getContractFiles(contract.id)
+    const files = await contractStore.getContractFiles(contract.id, 'contract')
     selectedContractFiles.value = Array.isArray(files) ? files : []
     if (selectedContractFiles.value.length === 1) { downloadFile(selectedContractFiles.value[0].id); return }
     filesDialog.value = true
   } catch (error) { toast.push('Не удалось получить список файлов', 'error') }
   finally { filesDialogLoading.value = false }
+}
+
+async function openContractUpdFiles(contract) {
+  updDialogLoading.value = true; selectedContractUpdFiles.value = []
+  try {
+    const files = await contractStore.getContractFiles(contract.id, 'upd')
+    selectedContractUpdFiles.value = Array.isArray(files) ? files : []
+    if (selectedContractUpdFiles.value.length === 1) { downloadFile(selectedContractUpdFiles.value[0].id); return }
+    updDialog.value = true
+  } catch (error) { toast.push('Не удалось получить список УПД', 'error') }
+  finally { updDialogLoading.value = false }
 }
 
 function downloadFile(fileId) { contractStore.downloadFile(fileId) }
