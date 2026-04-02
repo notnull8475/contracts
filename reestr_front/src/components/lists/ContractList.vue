@@ -179,5 +179,7 @@ function formatPrice(value) {
 <style scoped>
 .contract-table :deep(.v-data-table-header__content) {
   font-weight: 600;
+  white-space: nowrap;
+  overflow: visible;
 }
 </style>
