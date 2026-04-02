@@ -140,8 +140,8 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
         _ => "id",
     };
     let sort_order = match params.sort_order.as_deref() {
-        Some("desc") => "DESC",
-        _ => "ASC",
+        Some("asc") => "ASC",
+        _ => "DESC",
     };
 
     // Считаем total
