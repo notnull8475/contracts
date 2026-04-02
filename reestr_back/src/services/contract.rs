@@ -137,7 +137,8 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
         Some("price") => "price",
         Some("contract_status_id") => "contract_status_id",
         Some("organization_id") => "organization_id",
-        _ => "id",
+        Some("id") => "id",
+        _ => "date_from",
     };
     let sort_order = match params.sort_order.as_deref() {
         Some("asc") => "ASC",
@@ -163,7 +164,7 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
                 organization_id, type_of_validity, responsible_person_id, \
                 price, contract_status_id \
          FROM contract {} \
-         ORDER BY {} {} \
+         ORDER BY {} {} NULLS LAST \
          {}",
         where_clause, sort_col, sort_order, limit_clause
     );
