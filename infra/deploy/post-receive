@@ -78,6 +78,7 @@ while read -r OLD_REV NEW_REV REF_NAME; do
   # ---------------------------------------------------------------------------
   log "[5/6] Применение миграций БД..."
   cd "${APP_DIR}/reestr_back"
+  sed -i 's|dir = "/home/mechanicus/.*"|dir = "/opt/reestrdogovorov/reestr_back/migrations"|' diesel.toml
   diesel migration run 2>&1 || fail "diesel migration run завершился с ошибкой"
   ok "Миграции применены"
 

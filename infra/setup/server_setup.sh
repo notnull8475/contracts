@@ -213,6 +213,8 @@ while read -r OLD_REV NEW_REV REF_NAME; do
   # 5. Миграции БД
   log "[5/6] Применение миграций..."
   cd "\${APP_DIR}/reestr_back"
+  # Фиксим diesel.toml (перезатирается git checkout)
+  sed -i 's|dir = "/home/mechanicus/.*"|dir = "/opt/reestrdogovorov/reestr_back/migrations"|' diesel.toml
   diesel migration run         || fail "diesel migration run завершился с ошибкой"
   ok "Миграции применены"
 

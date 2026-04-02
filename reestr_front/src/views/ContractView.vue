@@ -93,7 +93,7 @@
       :serverItemsLength="totalContracts"
       :serverPage="currentPage"
       :serverPerPage="perPage"
-      :serverSortBy="sortBy"
+      :serverSortBy="serverSortByComputed"
       :serverSortOrder="sortOrder"
       :itemsPerPageOptions="itemsPerPageOptions"
       @edit="openForm"
@@ -238,6 +238,10 @@ const currentPage = ref(1)
 const perPage = ref(50)
 const sortBy = ref([])
 const sortOrder = ref('asc')
+const serverSortByComputed = computed(() => {
+  if (!sortBy.value.length) return []
+  return [{ key: sortBy.value[0], order: sortOrder.value || 'asc' }]
+})
 const itemsPerPageOptions = [
   { value: 50, title: '50' },
   { value: 100, title: '100' },
@@ -381,9 +385,10 @@ function onFilterChange() {
 }
 
 function onTableOptionsChange(options) {
-  // options: { page, itemsPerPage, sortBy }
   if (options.page) currentPage.value = options.page
-  if (options.itemsPerPage) perPage.value = options.itemsPerPage
+  if (options.itemsPerPage !== undefined && options.itemsPerPage !== null) {
+    perPage.value = options.itemsPerPage
+  }
   if (options.sortBy && options.sortBy.length) {
     sortBy.value = options.sortBy.map((s) => s.key)
     sortOrder.value = options.sortBy[0]?.order || 'asc'
