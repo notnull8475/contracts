@@ -101,9 +101,24 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
 
     if let Some(ref search) = params.search {
         if !search.is_empty() {
-            // Экранируем одинарные кавычки для SQL-безопасности
             let safe_search = search.replace('\'', "''");
-            conditions.push(format!("number ILIKE '%{}%'", safe_search));
+            let like = format!("%{}%", safe_search);
+
+            let mut or_conditions: Vec<String> = Vec::new();
+            or_conditions.push(format!("number ILIKE '{}'", like));
+            or_conditions.push(format!("COALESCE(address, '') ILIKE '{}'", like));
+            or_conditions.push(format!("COALESCE(comment, '') ILIKE '{}'", like));
+            or_conditions.push(format!("COALESCE(additional_agreement, '') ILIKE '{}'", like));
+            or_conditions.push(format!(
+                "organization_id IN (SELECT id FROM organization WHERE COALESCE(short_name_with_opf, '') ILIKE '{}')",
+                like
+            ));
+            or_conditions.push(format!(
+                "responsible_person_id IN (SELECT id FROM responsible_person WHERE COALESCE(lastname, '') ILIKE '{}')",
+                like
+            ));
+
+            conditions.push(format!("({})", or_conditions.join(" OR ")));
         }
     }
 

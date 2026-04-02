@@ -26,7 +26,7 @@
       <div class="d-flex flex-wrap ga-2 mt-3">
         <v-text-field
           v-model="search"
-          label="Поиск по номеру"
+          label="Поиск (номер, организация, адрес, ответственный...)"
           prepend-inner-icon="mdi-magnify"
           variant="outlined"
           density="comfortable"
