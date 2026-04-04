@@ -1,2 +1,4 @@
 .env
 reestr_back/.env
+reestr_back/files/
+reestr_back/application.log

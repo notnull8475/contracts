@@ -55,6 +55,9 @@
               density="comfortable"
               :menu-props="{ maxHeight: '220px' }"
             >
+              <template #selection="{ item }">
+                {{ item?.raw?.display ?? organizationDisplayLabel }}
+              </template>
               <template #no-data>
                 <div class="pa-3 d-flex flex-column ga-2">
                   <span class="text-body-2 text-medium-emphasis">Организация не найдена в справочнике</span>
@@ -511,24 +514,75 @@ const orgAutocompleteItems = computed(() =>
   })),
 )
 
+/** Подпись выбранной организации, если слот selection не отдал raw */
+const organizationDisplayLabel = computed(() => {
+  const id = form.organization_id
+  if (id == null || id === '') return ''
+  return orgAutocompleteItems.value.find((o) => o.id === id)?.display ?? ''
+})
+
+/**
+ * Значение для <input type="date">: только календарная часть YYYY-MM-DD без конвертации через Date,
+ * иначе при строке вида ...T00:00:00 разбор в JS даёт сдвиг (дважды выбрать дату «лечит» только частично).
+ */
+function dateValueForPicker(value) {
+  if (value == null || value === '') return ''
+  const s = String(value).trim()
+  const head = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (head) return head[1]
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return ''
+  return formatYmdLocal(d)
+}
+
+/** Парсинг даты договора в локальный полдень — только для арифметики месяцев, без UTC-сдвига */
+function parseCalendarDateLocal(value) {
+  if (value == null || value === '') return null
+  const s = String(value).trim()
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) {
+    const y = Number(m[1])
+    const mo = Number(m[2])
+    const d = Number(m[3])
+    return new Date(y, mo - 1, d, 12, 0, 0)
+  }
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function formatYmdLocal(d) {
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${day}`
+}
+
+/** NaiveDateTime в API ожидается как YYYY-MM-DDTHH:mm:ss */
+function toApiDateTime(ymdOrIso) {
+  if (ymdOrIso == null || ymdOrIso === '') return null
+  const s = String(ymdOrIso).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T00:00:00`
+  return s
+}
+
 const selectedUploadFile = computed(() => resolveSelectedFile(newFile.value))
 const selectedUploadUpdFile = computed(() => resolveSelectedFile(newUpdFile.value))
 
 const formattedDateFrom = computed({
   get() {
-    return form.date_from ? new Date(form.date_from).toISOString().split('T')[0] : ''
+    return dateValueForPicker(form.date_from)
   },
   set(value) {
-    form.date_from = value ? `${value}T00:00:00` : null
+    form.date_from = value || null
   },
 })
 
 const formattedDateTo = computed({
   get() {
-    return form.date_to ? new Date(form.date_to).toISOString().split('T')[0] : ''
+    return dateValueForPicker(form.date_to)
   },
   set(value) {
-    form.date_to = value ? `${value}T00:00:00` : null
+    form.date_to = value || null
   },
 })
 
@@ -544,15 +598,15 @@ watch(
   () => form.contract_period,
   (period) => {
     if (!form.date_from || !period || period <= 0) return
-    const start = new Date(form.date_from)
+    const start = parseCalendarDateLocal(form.date_from)
+    if (!start) return
     const origDay = start.getDate()
-    start.setMonth(start.getMonth() + period)
-    // Корректировка: если день изменился из-за короткого месяца
+    start.setMonth(start.getMonth() + Number(period))
     if (start.getDate() < origDay) {
-      start.setDate(0) // последний день предыдущего месяца
+      start.setDate(0)
     }
     periodChanging.value = true
-    form.date_to = start.toISOString().split('T')[0] + 'T00:00:00'
+    form.date_to = formatYmdLocal(start)
   },
 )
 
@@ -793,12 +847,9 @@ async function saveQuickOrganization() {
 function calculateContractPeriod(fromDate, toDate) {
   if (!fromDate || !toDate) return null
 
-  const start = new Date(fromDate)
-  const end = new Date(toDate)
-
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return null
-  }
+  const start = parseCalendarDateLocal(fromDate)
+  const end = parseCalendarDateLocal(toDate)
+  if (!start || !end || end < start) return null
 
   let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
   if (end.getDate() < start.getDate()) {
@@ -831,6 +882,8 @@ function formatFileSize(bytes) {
 function save() {
   const payload = {
     ...form,
+    date_from: toApiDateTime(form.date_from),
+    date_to: toApiDateTime(form.date_to),
     contract_period: calculateContractPeriod(form.date_from, form.date_to),
   }
 
