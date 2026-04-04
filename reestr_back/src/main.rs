@@ -1,21 +1,20 @@
 mod auth;
 mod conf;
 mod handlers;
-mod middleware;
 mod models;
 mod schema;
 mod services;
 mod utils;
 
+use crate::auth::auth::cookie_session_key;
 use crate::conf::conf::init_env;
 use crate::services::contract_files;
 use crate::utils::create_admin_user::create_admin_user_if_need;
 use actix_cors::Cors;
-use actix_multipart::Multipart;
 use actix_session::config::{BrowserSession, CookieContentSecurity};
 use actix_session::storage::CookieSessionStore;
 use actix_session::SessionMiddleware;
-use actix_web::cookie::{Key, SameSite};
+use actix_web::cookie::SameSite;
 use actix_web::{web, App, HttpServer};
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
@@ -23,7 +22,7 @@ use std::env;
 use std::fs::OpenOptions;
 
 fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
-    SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
+    SessionMiddleware::builder(CookieSessionStore::default(), cookie_session_key())
         .cookie_name(String::from("image-cookie")) // arbitrary name
         .cookie_secure(false) // https only
         .session_lifecycle(BrowserSession::default()) // expire at end of session
@@ -70,7 +69,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(actix_web::middleware::Logger::default()) // Встроенный логгер Actix
             .service(
                 web::scope("/api/v1")
-                    .route("/registration", web::post().to(auth::secure::register_user))
+                    .route("/registration", web::post().to(handlers::users::add_user))
                     .route("/login", web::post().to(auth::secure::login_user))
                     .route("/roles/get", web::get().to(handlers::users::get_roles))
                     .service(

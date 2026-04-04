@@ -138,20 +138,3 @@ pub async fn del_user(req: HttpRequest, user_id: web::Path<i32>) -> Result<HttpR
 
     Ok(HttpResponse::Ok().body("User deleted successfully"))
 }
-
-pub async fn get_user(_req: HttpRequest, user_id: web::Path<i32>) -> Result<HttpResponse, Error> {
-    let conn = &mut establish_connection();
-    let user: User = users::table
-        .filter(users::id.eq(user_id.into_inner()))
-        .select(users::all_columns)
-        .first(conn)
-        .expect("User not found");
-    let user_dto = UserDTO {
-        id: user.id,
-        login: user.login,
-        username: user.username,
-        role: user.role,
-        is_active: user.is_active,
-    };
-    Ok(HttpResponse::Ok().json(user_dto))
-}

@@ -348,8 +348,8 @@ if [[ ! -f "${ENV_FILE}" ]]; then
 # Редактировать: nano ${ENV_FILE}
 # =====================================================
 DATABASE_URL=postgres://USER:PASSWORD@DB_HOST:5432/reestrdogovorov
+JWT_SECRET=replace_with_random_string_at_least_32_chars_long
 DADATAAPIKEY=your_dadata_api_key
-DADATASECRETKEY=your_dadata_secret_key
 ENV_TEMPLATE
 
   chown "${APP_USER}:${APP_USER}" "${ENV_FILE}"

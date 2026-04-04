@@ -1,8 +1,7 @@
 use crate::schema::contract;
 use bigdecimal::BigDecimal;
 use chrono::NaiveDateTime;
-use diesel::{AsChangeset, Insertable, Queryable, QueryableByName};
-use diesel::sql_types::{Integer, Nullable, Text, Timestamp, Timestamptz, Numeric};
+use diesel::{AsChangeset, Insertable, Queryable};
 use serde::{Deserialize, Serialize};
 
 #[derive(Queryable, Insertable, AsChangeset, Serialize, Deserialize, Debug)]

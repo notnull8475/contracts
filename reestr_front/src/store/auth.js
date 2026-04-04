@@ -42,7 +42,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     initUser(token) {
-      const decodedData = this.parseJwt(this.token)
+      const decodedData = this.parseJwt(token)
 
       if (decodedData) {
         this.user = {

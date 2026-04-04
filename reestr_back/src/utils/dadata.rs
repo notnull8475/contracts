@@ -43,7 +43,9 @@ pub struct FindPartyResponse {
 
 #[derive(Deserialize, Debug)]
 pub struct Suggestion {
+    #[allow(dead_code)]
     pub value: String,
+    #[allow(dead_code)]
     pub unrestricted_value: String,
     pub data: OrgData,
 }

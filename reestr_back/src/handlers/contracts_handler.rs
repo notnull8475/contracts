@@ -1,5 +1,5 @@
 use crate::auth::auth;
-use crate::models::contract_models::{Contract, ContractDTO, ContractListParams, ContractStatsResponse, PaginatedContractsResponse};
+use crate::models::contract_models::{Contract, ContractDTO, ContractListParams};
 use crate::services::contract::{
     add_contract, batch_stats, get_contract, list_contract, list_contract_paginated,
     remove_contract, update_contract,

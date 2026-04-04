@@ -152,7 +152,7 @@ src/
 3. **Roles**: `'admin'`, `'manager'`, (checked via `authStore.user.role`)
 4. **Database**: PostgreSQL with Diesel ORM, migrations in `migrations/`
 5. **Logging**: Backend uses `simple_logger`, logs to `application.log`
-6. **Environment**: Variables in `.env` files (never commit secrets)
+6. **Environment**: Variables in `.env` files (never commit secrets). Backend requires `JWT_SECRET` (≥32 characters) for JWT and session cookies.
 
 ### Testing
 

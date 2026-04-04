@@ -1,9 +1,10 @@
-use actix_web::{web, HttpResponse, Error};
+use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_multipart::Multipart;
 use futures_util::TryStreamExt;
 use serde::Deserialize;
 use std::io::Write;
 
+use crate::auth::auth;
 use crate::services::contract_files as file_service;
 
 #[derive(Deserialize)]
@@ -17,10 +18,15 @@ fn default_file_type() -> String {
 }
 
 pub async fn upload_file(
+    req: HttpRequest,
     mut payload: Multipart,
     contract_id: web::Path<i32>,
     query: web::Query<FileTypeParam>,
 ) -> Result<HttpResponse, Error> {
+    if let Err(r) = auth::verify_and_extract_claims(&req) {
+        return Ok(r);
+    }
+
     let contract_id = contract_id.into_inner();
     let ftype = query.file_type.clone();
 
@@ -32,7 +38,7 @@ pub async fn upload_file(
             .get_filename()
             .map(|s| s.to_string())
             .unwrap_or_else(|| "unknown".to_string());
-        
+
         let mime_type = item
             .content_type()
             .map(|m| m.to_string())
@@ -66,9 +72,14 @@ pub async fn upload_file(
 }
 
 pub async fn get_contract_files(
+    req: HttpRequest,
     contract_id: web::Path<i32>,
     query: web::Query<FileTypeParam>,
 ) -> Result<HttpResponse, Error> {
+    if let Err(r) = auth::verify_and_extract_claims(&req) {
+        return Ok(r);
+    }
+
     let contract_id = contract_id.into_inner();
     let ftype = &query.file_type;
 
@@ -81,8 +92,13 @@ pub async fn get_contract_files(
 }
 
 pub async fn download_file(
+    req: HttpRequest,
     file_id: web::Path<i32>,
 ) -> Result<HttpResponse, Error> {
+    if let Err(r) = auth::verify_and_extract_claims(&req) {
+        return Ok(r);
+    }
+
     let file_id = file_id.into_inner();
 
     match file_service::get_file_by_id(file_id).await {
@@ -92,7 +108,7 @@ pub async fn download_file(
                 Ok(data) => {
                     let mut response = HttpResponse::Ok();
                     response.insert_header(
-                        actix_web::http::header::ContentDisposition::attachment(&file.orig_name)
+                        actix_web::http::header::ContentDisposition::attachment(&file.orig_name),
                     );
                     response.insert_header((
                         actix_web::http::header::CONTENT_TYPE,
@@ -115,9 +131,11 @@ pub async fn download_file(
     }
 }
 
-pub async fn delete_file(
-    file_id: web::Path<i32>,
-) -> Result<HttpResponse, Error> {
+pub async fn delete_file(req: HttpRequest, file_id: web::Path<i32>) -> Result<HttpResponse, Error> {
+    if let Err(r) = auth::verify_and_extract_claims(&req) {
+        return Ok(r);
+    }
+
     let file_id = file_id.into_inner();
 
     match file_service::delete_file(file_id).await {

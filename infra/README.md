@@ -65,8 +65,8 @@ ssh deploy@<SERVER_IP> "nano /opt/reestrdogovorov/reestr_back/.env"
 Содержимое:
 ```env
 DATABASE_URL=postgres://USER:PASSWORD@DB_HOST:5432/reestrdogovorov
+JWT_SECRET=случайная_строка_не_короче_32_символов
 DADATAAPIKEY=ваш_ключ_dadata
-DADATASECRETKEY=ваш_секрет_dadata
 ```
 
 ### 4. Настройте nginx на сервере
@@ -178,8 +178,8 @@ infra/
 | Переменная | Описание |
 |------------|----------|
 | `DATABASE_URL` | Строка подключения к PostgreSQL |
+| `JWT_SECRET` | Секрет для подписи JWT и cookie-сессии (не менее 32 символов); при смене все выданные токены станут недействительны |
 | `DADATAAPIKEY` | API-ключ Dadata (для автозаполнения по ИНН) |
-| `DADATASECRETKEY` | Секретный ключ Dadata |
 
 > `.env` файл создаётся скриптом `server_setup.sh` как шаблон.  
 > Никогда не коммитьте `.env` с реальными данными в репозиторий.

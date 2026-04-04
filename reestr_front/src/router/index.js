@@ -81,7 +81,7 @@ router.beforeEach((to, from, next) => {
     return next('/about')
   }
   if (to.meta.requiresManager && authStore.user.role !== 'manager') {
-    // Пользователи без прав администратора перенаправляются на about
+    // Пользователи без роли manager перенаправляются на about
     return next('/about')
   }
 
