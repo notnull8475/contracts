@@ -312,6 +312,32 @@
 
         <v-divider class="my-3" />
 
+        <v-expansion-panels v-if="form.id" class="mb-3">
+          <v-expansion-panel>
+            <v-expansion-panel-title class="text-subtitle-2">
+              <v-icon size="small" class="mr-2">mdi-history</v-icon>
+              История изменений
+              <v-chip v-if="historyItems.length" size="x-small" class="ml-2">{{ historyItems.length }}</v-chip>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-progress-linear v-if="historyLoading" indeterminate color="primary" class="mb-2" />
+              <v-list v-if="historyItems.length" density="compact">
+                <v-list-item v-for="h in historyItems" :key="h.id">
+                  <template #prepend>
+                    <v-icon size="small" :color="historyColor(h.action)">{{ historyIcon(h.action) }}</v-icon>
+                  </template>
+                  <v-list-item-title class="text-body-2">{{ historyLabel(h.action) }}</v-list-item-title>
+                  <v-list-item-subtitle v-if="h.description">{{ h.description }}</v-list-item-subtitle>
+                  <template #append>
+                    <span class="text-caption text-medium-emphasis">{{ formatHistoryDate(h.created_at) }}</span>
+                  </template>
+                </v-list-item>
+              </v-list>
+              <p v-else-if="!historyLoading" class="text-caption text-medium-emphasis">Нет записей</p>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+
         <h4 class="text-subtitle-1 mb-2">Дополнительные соглашения</h4>
 
         <v-btn
@@ -470,6 +496,8 @@ const supplementaryFormDialog = ref(false)
 const selectedSupplementary = ref(null)
 const isCustomPrice = ref(false)
 const periodChanging = ref(false)
+const historyItems = ref([])
+const historyLoading = ref(false)
 
 const quickOrg = reactive({
   short_name_with_opf: '',
@@ -642,9 +670,11 @@ watch(
       loadFiles(newVal.id)
       loadUpdFiles(newVal.id)
       loadSupplementaryAgreements(newVal.id)
+      loadHistory(newVal.id)
     } else {
       files.value = []
       supplementaryAgreements.value = []
+      historyItems.value = []
     }
   },
   { immediate: true },
@@ -757,6 +787,58 @@ async function loadSupplementaryAgreements(contractId) {
   }
 }
 
+async function loadHistory(contractId) {
+  historyLoading.value = true
+  try {
+    historyItems.value = await contractStore.getContractHistory(contractId)
+  } catch (e) {
+    console.error('Failed to load history:', e)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function historyIcon(action) {
+  const map = {
+    sa_added: 'mdi-file-plus',
+    sa_updated: 'mdi-file-edit',
+    sa_deleted: 'mdi-file-remove',
+    price_changed: 'mdi-currency-rub',
+    status_changed: 'mdi-flag',
+    contract_updated: 'mdi-pencil',
+  }
+  return map[action] || 'mdi-circle'
+}
+
+function historyColor(action) {
+  const map = {
+    sa_added: 'success',
+    sa_updated: 'info',
+    sa_deleted: 'error',
+    price_changed: 'warning',
+    status_changed: 'primary',
+    contract_updated: 'secondary',
+  }
+  return map[action] || 'grey'
+}
+
+function historyLabel(action) {
+  const map = {
+    sa_added: 'Добавлено доп. соглашение',
+    sa_updated: 'Изменено доп. соглашение',
+    sa_deleted: 'Удалено доп. соглашение',
+    price_changed: 'Изменена цена',
+    status_changed: 'Изменён статус',
+    contract_updated: 'Обновлён договор',
+  }
+  return map[action] || action
+}
+
+function formatHistoryDate(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
 function openSupplementaryForm(agreement = null) {
   selectedSupplementary.value = agreement ? { ...agreement } : null
   emit('open-supplementary-form', { contractId: form.id, agreement: selectedSupplementary.value })
@@ -766,6 +848,7 @@ async function removeSupplementaryAgreement(id) {
   try {
     await saStore.delete(id)
     supplementaryAgreements.value = supplementaryAgreements.value.filter((sa) => sa.id !== id)
+    if (form.id) loadHistory(form.id)
     toast.push('Соглашение удалено', 'success')
   } catch (e) {
     toast.push(e.message, 'error')

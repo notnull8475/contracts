@@ -1,5 +1,6 @@
 pub mod contracts_handler;
 pub mod contract_files_handler;
+pub mod contract_history_handler;
 pub mod contract_status_handler;
 pub mod organizations_handler;
 pub mod pricelist_handler;

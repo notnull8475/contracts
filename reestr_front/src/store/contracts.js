@@ -48,24 +48,28 @@ export const ContractUtil = defineStore('contract', {
         'Ошибка получения списка договоров',
       )
     },
-    /// Пагинированный список с фильтрами
     async getPaginatedContracts(params = {}) {
       const res = await axios.get(`${contractRequest}/paginated`, { params })
       return res.data
     },
-    /// Batch счётчики файлов и доп соглашений
     async getBatchStats() {
       const res = await axios.get(`${contractRequest}/stats`)
       return res.data
     },
-    async uploadFile(contractId, file, fileType = 'contract') {
+    async uploadFile(contractId, file, fileType = 'contract', saId = null) {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await axios.post(`${contractRequest}/files/${contractId}?file_type=${fileType}`, formData)
+      let url = `${contractRequest}/files/${contractId}?file_type=${fileType}`
+      if (saId) url += `&supplementary_agreement_id=${saId}`
+      const res = await axios.post(url, formData)
       return res.data
     },
     async getContractFiles(contractId, fileType = 'contract') {
       const res = await axios.get(`${contractRequest}/files/${contractId}?file_type=${fileType}`)
+      return res.data
+    },
+    async getSaFiles(saId) {
+      const res = await axios.get(`${contractRequest}/supplementary-agreements/files/${saId}`)
       return res.data
     },
     async downloadFile(fileId) {
@@ -78,6 +82,10 @@ export const ContractUtil = defineStore('contract', {
         fileId,
         'Ошибка удаления файла',
       )
+    },
+    async getContractHistory(contractId) {
+      const res = await axios.get(`${contractRequest}/history/${contractId}`)
+      return res.data
     },
   },
 })

@@ -121,6 +121,8 @@ async fn main() -> std::io::Result<()> {
                             .route("/supplementary-agreements/add", web::post().to(handlers::supplementary_agreement_handler::add_req))
                             .route("/supplementary-agreements/update", web::post().to(handlers::supplementary_agreement_handler::update_req))
                             .route("/supplementary-agreements/del/{id}", web::delete().to(handlers::supplementary_agreement_handler::del_req))
+                            .route("/supplementary-agreements/files/{sa_id}", web::get().to(handlers::contract_files_handler::get_sa_files))
+                            .route("/history/{contract_id}", web::get().to(handlers::contract_history_handler::list_by_contract_req))
                     )
                     .service(
                         web::scope("/organizations")

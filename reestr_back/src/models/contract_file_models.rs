@@ -14,6 +14,7 @@ pub struct ContractFile {
     pub mime_type_txt: String,
     pub created_at: Option<DateTime<Utc>>,
     pub file_type: String,
+    pub supplementary_agreement_id: Option<i32>,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -25,6 +26,7 @@ pub struct ContractFileDTO {
     pub size_bytes: i64,
     pub mime_type_txt: String,
     pub file_type: String,
+    pub supplementary_agreement_id: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -37,6 +39,7 @@ pub struct ContractFileResponse {
     pub mime_type: String,
     pub created_at: Option<DateTime<Utc>>,
     pub file_type: String,
+    pub supplementary_agreement_id: Option<i32>,
 }
 
 impl From<ContractFile> for ContractFileResponse {
@@ -50,6 +53,7 @@ impl From<ContractFile> for ContractFileResponse {
             mime_type: file.mime_type_txt,
             created_at: file.created_at,
             file_type: file.file_type,
+            supplementary_agreement_id: file.supplementary_agreement_id,
         }
     }
 }

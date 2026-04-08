@@ -1,3 +1,4 @@
+use crate::models::contract_history_models::ContractHistoryDTO;
 use crate::models::contract_models::{Contract, ContractDTO, ContractListDTO, ContractListParams, ContractStatsResponse, PaginatedContractsResponse};
 use crate::schema::contract;
 use crate::utils::db::establish_connection;
@@ -25,11 +26,33 @@ pub async fn remove_contract(contract_id: i32) -> Result<usize, String> {
 
 pub async fn update_contract(contract: Contract) -> Result<Contract, String> {
     let connection = &mut establish_connection();
-    diesel::update(contract::table)
+
+    let old: Contract = contract::table
         .filter(contract::id.eq(contract.id))
-        .set(contract)
+        .first(connection)
+        .map_err(|e| format!("Contract not found: {}", e))?;
+
+    let result = diesel::update(contract::table)
+        .filter(contract::id.eq(contract.id))
+        .set(&contract)
         .get_result(connection)
-        .map_err(|e| format!("Error to update contract: {}", e))
+        .map_err(|e| format!("Error to update contract: {}", e))?;
+
+    if old.contract_status_id != contract.contract_status_id {
+        let old_status = old.contract_status_id.map(|s| s.to_string()).unwrap_or_else(|| "не задан".to_string());
+        let new_status = contract.contract_status_id.map(|s| s.to_string()).unwrap_or_else(|| "не задан".to_string());
+        let _ = diesel::insert_into(crate::schema::contract_history::table)
+            .values(&ContractHistoryDTO {
+                contract_id: contract.id,
+                action: "status_changed".to_string(),
+                old_value: Some(old_status),
+                new_value: Some(new_status),
+                description: None,
+            })
+            .execute(connection);
+    }
+
+    Ok(result)
 }
 
 pub async fn list_contract() -> Result<Vec<Contract>, String> {

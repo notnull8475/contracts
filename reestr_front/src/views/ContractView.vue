@@ -139,7 +139,9 @@
   <supplementary-agreement-form
     v-model="saDialog"
     :agreement="selectedSupplementary"
+    :files="selectedSaFiles"
     @save="saveSupplementaryAgreement"
+    @files-loaded="onSaFilesLoaded"
   />
 
   <v-dialog v-model="filesDialog" max-width="720">
@@ -264,6 +266,7 @@ const saDialog = ref(false)
 const updDialog = ref(false)
 const updDialogLoading = ref(false)
 const selectedSupplementary = ref(null)
+const selectedSaFiles = ref([])
 const selectedContractUpdFiles = ref([])
 
 // Loading
@@ -535,18 +538,64 @@ async function deletePricelistItem(id) {
   catch (e) { toast.push(e.message || 'Ошибка удаления позиции', 'error') }
 }
 
-function handleOpenSupplementaryForm({ contractId, agreement }) {
+async function handleOpenSupplementaryForm({ contractId, agreement }) {
   selectedSupplementary.value = agreement ? { ...agreement, contract_id: contractId } : { contract_id: contractId }
+  selectedSaFiles.value = []
+  if (agreement?.id) {
+    try {
+      const files = await contractStore.getSaFiles ? contractStore.getSaFiles(agreement.id) : []
+      selectedSaFiles.value = Array.isArray(files) ? files : []
+    } catch (e) {
+      console.error('Failed to load SA files', e)
+    }
+  }
   saDialog.value = true
 }
 
 async function saveSupplementaryAgreement(dto) {
+  const pendingFiles = dto.pendingFiles || []
+  const cleanDto = { ...dto }
+  delete cleanDto.pendingFiles
+
   try {
-    if (dto.id) { await saStore.update(dto); toast.push('Соглашение обновлено', 'success') }
-    else { await saStore.add(dto); toast.push('Соглашение добавлено', 'success') }
+    let saId = cleanDto.id
+    if (saId) {
+      await saStore.update(cleanDto)
+      toast.push('Соглашение обновлено', 'success')
+    } else {
+      const created = await saStore.add(cleanDto)
+      saId = created?.id
+      toast.push('Соглашение добавлено', 'success')
+    }
+
+    if (saId && pendingFiles.length) {
+      const cid = cleanDto.contract_id
+      for (const file of pendingFiles) {
+        try {
+          await contractStore.uploadFile(cid, file, 'supplementary', saId)
+        } catch (e) {
+          console.error('Failed to upload file', e)
+        }
+      }
+      toast.push(`Загружено файлов: ${pendingFiles.length}`, 'success')
+    }
+
     saDialog.value = false
-    if (dto.contract_id) saCounts.value[dto.contract_id] = await saStore.countByContract(dto.contract_id)
+    if (cleanDto.contract_id) {
+      saCounts.value[cleanDto.contract_id] = await saStore.countByContract(cleanDto.contract_id)
+      await fetchContracts()
+    }
   } catch (e) { toast.push(e.message || 'Ошибка сохранения соглашения', 'error') }
+}
+
+async function onSaFilesLoaded({ saId, filesRef }) {
+  if (!saId) return
+  try {
+    const files = await contractStore.getContractFiles ? contractStore.getContractFiles(saId, 'supplementary') : []
+    filesRef.value = Array.isArray(files) ? files : []
+  } catch (e) {
+    console.error('Failed to load SA files', e)
+  }
 }
 
 function handleOrganizationAdded(organization) {

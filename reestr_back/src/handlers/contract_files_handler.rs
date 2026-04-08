@@ -11,6 +11,7 @@ use crate::services::contract_files as file_service;
 pub struct FileTypeParam {
     #[serde(default = "default_file_type")]
     pub file_type: String,
+    pub supplementary_agreement_id: Option<i32>,
 }
 
 fn default_file_type() -> String {
@@ -29,6 +30,7 @@ pub async fn upload_file(
 
     let contract_id = contract_id.into_inner();
     let ftype = query.file_type.clone();
+    let sa_id = query.supplementary_agreement_id;
 
     while let Some(item) = payload.try_next().await.map_err(|e| {
         actix_web::error::ErrorBadRequest(e.to_string())
@@ -54,7 +56,7 @@ pub async fn upload_file(
             })?;
         }
 
-        match file_service::save_file(contract_id, file_data, filename, mime_type, ftype).await {
+        match file_service::save_file(contract_id, file_data, filename, mime_type, ftype, sa_id).await {
             Ok(file) => {
                 return Ok(HttpResponse::Ok().json(file));
             }
@@ -142,6 +144,24 @@ pub async fn delete_file(req: HttpRequest, file_id: web::Path<i32>) -> Result<Ht
         Ok(_) => Ok(HttpResponse::Ok().json(serde_json::json!({
             "message": "File deleted"
         }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": e
+        }))),
+    }
+}
+
+pub async fn get_sa_files(
+    req: HttpRequest,
+    sa_id: web::Path<i32>,
+) -> Result<HttpResponse, Error> {
+    if let Err(r) = auth::verify_and_extract_claims(&req) {
+        return Ok(r);
+    }
+
+    let sa_id = sa_id.into_inner();
+
+    match file_service::get_files_by_sa(sa_id).await {
+        Ok(files) => Ok(HttpResponse::Ok().json(files)),
         Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
             "error": e
         }))),

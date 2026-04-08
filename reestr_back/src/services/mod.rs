@@ -1,5 +1,6 @@
 pub mod contract;
 pub mod contract_files;
+pub mod contract_history;
 pub mod contract_status;
 pub mod organization;
 pub mod pricelist;

@@ -32,6 +32,19 @@ diesel::table! {
         mime_type_txt -> Text,
         created_at -> Nullable<Timestamptz>,
         file_type -> Text,
+        supplementary_agreement_id -> Nullable<Int4>,
+    }
+}
+
+diesel::table! {
+    contract_history (id) {
+        id -> Int4,
+        contract_id -> Int4,
+        action -> Text,
+        old_value -> Nullable<Text>,
+        new_value -> Nullable<Text>,
+        description -> Nullable<Text>,
+        created_at -> Nullable<Timestamptz>,
     }
 }
 
@@ -125,8 +138,10 @@ diesel::joinable!(contract -> dict_type_of_validity (type_of_validity));
 diesel::joinable!(contract -> organization (organization_id));
 diesel::joinable!(contract -> responsible_person (responsible_person_id));
 diesel::joinable!(contract_files -> contract (contract_fk));
+diesel::joinable!(contract_files -> supplementary_agreement (supplementary_agreement_id));
+diesel::joinable!(contract_history -> contract (contract_id));
 diesel::joinable!(responsible_person -> users (user_id));
 diesel::joinable!(supplementary_agreement -> contract (contract_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    contract,contract_files,dict_contract_status,dict_pricelist,dict_type_of_validity,organization,responsible_person,supplementary_agreement,users,);
+    contract,contract_files,contract_history,dict_contract_status,dict_pricelist,dict_type_of_validity,organization,responsible_person,supplementary_agreement,users,);

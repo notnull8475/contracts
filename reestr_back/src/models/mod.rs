@@ -6,3 +6,4 @@ pub mod contract_file_models;
 pub mod contract_status_models;
 pub mod supplementary_agreement_models;
 pub mod pricelist_models;
+pub mod contract_history_models;
