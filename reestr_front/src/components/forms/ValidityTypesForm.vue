@@ -23,10 +23,20 @@
         <div class="mt-4">
           <!--          <h3>Уже добавленные типы договоров:</h3>-->
           <v-list density="compact">
-            <v-list-item v-for="type in validityTypesOpt" :key="type.id" class="d-flex justify-space-between">
+            <v-list-item
+              v-for="type in validityTypesOpt"
+              :key="type.id"
+              class="d-flex justify-space-between"
+            >
               {{ type.name }}
               <template #append>
-                <v-btn icon="mdi-delete" size="small" color="error" variant="text" @click="$emit('delete', type.id)" />
+                <v-btn
+                  icon="mdi-delete"
+                  size="small"
+                  color="error"
+                  variant="text"
+                  @click="$emit('delete', type.id)"
+                />
               </template>
             </v-list-item>
             <v-list-item v-if="!validityTypesOpt || validityTypesOpt.length === 0">

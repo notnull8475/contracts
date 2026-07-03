@@ -11,22 +11,38 @@
       <v-row class="mb-2">
         <v-col cols="12" sm="6" md="3">
           <v-card rounded="lg" variant="tonal" color="primary" class="h-100">
-            <v-card-item prepend-icon="mdi-file-document-multiple" title="Договоры" :subtitle="String(metrics.contracts)" />
+            <v-card-item
+              prepend-icon="mdi-file-document-multiple"
+              title="Договоры"
+              :subtitle="String(metrics.contracts)"
+            />
           </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card rounded="lg" variant="tonal" color="success" class="h-100">
-            <v-card-item prepend-icon="mdi-check-decagram" title="Актуальные" :subtitle="String(metrics.activeContracts)" />
+            <v-card-item
+              prepend-icon="mdi-check-decagram"
+              title="Актуальные"
+              :subtitle="String(metrics.activeContracts)"
+            />
           </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card rounded="lg" variant="tonal" color="info" class="h-100">
-            <v-card-item prepend-icon="mdi-domain" title="Организации" :subtitle="String(metrics.organizations)" />
+            <v-card-item
+              prepend-icon="mdi-domain"
+              title="Организации"
+              :subtitle="String(metrics.organizations)"
+            />
           </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card rounded="lg" variant="tonal" color="warning" class="h-100">
-            <v-card-item prepend-icon="mdi-account-tie" title="Ответственные" :subtitle="String(metrics.responsiblePersons)" />
+            <v-card-item
+              prepend-icon="mdi-account-tie"
+              title="Ответственные"
+              :subtitle="String(metrics.responsiblePersons)"
+            />
           </v-card>
         </v-col>
       </v-row>

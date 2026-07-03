@@ -20,23 +20,12 @@
     <v-progress-linear v-if="loading" indeterminate color="primary" />
 
     <v-card-text v-else>
-      <v-alert v-if="!statuses.length" type="info" variant="tonal">
-        Статусы не добавлены.
-      </v-alert>
-      <contract-status-list
-        v-else
-        :statuses="statuses"
-        @edit="openForm"
-        @delete="deleteStatus"
-      />
+      <v-alert v-if="!statuses.length" type="info" variant="tonal"> Статусы не добавлены. </v-alert>
+      <contract-status-list v-else :statuses="statuses" @edit="openForm" @delete="deleteStatus" />
     </v-card-text>
   </v-card>
 
-  <contract-status-form
-    v-model="dialog"
-    :status="selectedStatus"
-    @save="saveStatus"
-  />
+  <contract-status-form v-model="dialog" :status="selectedStatus" @save="saveStatus" />
 </template>
 
 <script setup>

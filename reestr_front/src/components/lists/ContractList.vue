@@ -141,25 +141,33 @@ const headers = [
 
 const statusMap = computed(() => {
   const map = {}
-  props.statusesOpt?.forEach((s) => { map[s.id] = s })
+  props.statusesOpt?.forEach((s) => {
+    map[s.id] = s
+  })
   return map
 })
 
 const orgIdToName = computed(() => {
   const map = {}
-  props.organizationsOpt?.forEach((i) => { map[i.id] = i.short_name_with_opf })
+  props.organizationsOpt?.forEach((i) => {
+    map[i.id] = i.short_name_with_opf
+  })
   return map
 })
 
 const responsibleIdToName = computed(() => {
   const map = {}
-  props.respPersonsOpt?.forEach((i) => { map[i.id] = i.lastname })
+  props.respPersonsOpt?.forEach((i) => {
+    map[i.id] = i.lastname
+  })
   return map
 })
 
 const validityTypeIdToName = computed(() => {
   const map = {}
-  props.validityTypesOpt?.forEach((i) => { map[i.id] = i.name })
+  props.validityTypesOpt?.forEach((i) => {
+    map[i.id] = i.name
+  })
   return map
 })
 
