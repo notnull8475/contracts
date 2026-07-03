@@ -35,10 +35,7 @@
         <!-- Список текущих позиций -->
         <div class="mt-4">
           <v-list density="compact" rounded="lg" border>
-            <v-list-item
-              v-for="item in pricelistOpt"
-              :key="item.id"
-            >
+            <v-list-item v-for="item in pricelistOpt" :key="item.id">
               <v-list-item-title>{{ item.name }}</v-list-item-title>
               <v-list-item-subtitle>{{ formatPrice(item.price) }}</v-list-item-subtitle>
               <template #append>

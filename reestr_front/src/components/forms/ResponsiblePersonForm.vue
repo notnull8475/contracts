@@ -10,13 +10,28 @@
       }}</v-card-title>
       <v-card-text>
         <!-- Имя -->
-        <v-text-field v-model="form.firstname" label="Имя" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.firstname"
+          label="Имя"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- Фамилия -->
-        <v-text-field v-model="form.lastname" label="Фамилия" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.lastname"
+          label="Фамилия"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- Отчество -->
-        <v-text-field v-model="form.name" label="Отчество" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.name"
+          label="Отчество"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <v-select
           v-if="role === 'admin'"

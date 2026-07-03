@@ -3,7 +3,9 @@
     <v-card-text class="py-5 px-5 d-flex flex-wrap justify-space-between align-center ga-3">
       <div>
         <h1 class="text-h5 font-weight-bold mb-1">Реестр организаций</h1>
-        <p class="text-body-2 text-medium-emphasis">Карточки контрагентов с реквизитами и адресами</p>
+        <p class="text-body-2 text-medium-emphasis">
+          Карточки контрагентов с реквизитами и адресами
+        </p>
       </div>
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openForm()">Новая организация</v-btn>
     </v-card-text>

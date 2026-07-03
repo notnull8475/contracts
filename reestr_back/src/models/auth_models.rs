@@ -10,7 +10,7 @@ pub struct User {
     pub username: String,
     pub password_hash: String,
     pub role: String,
-    pub is_active: Option<bool>,
+    pub is_active: bool,
 }
 
 #[derive(Insertable, Serialize, Deserialize, AsChangeset, Debug)]

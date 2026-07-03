@@ -1,10 +1,21 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="560">
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
+    max-width="560"
+  >
     <v-card rounded="lg">
-      <v-card-title>{{ user?.id ? 'Редактировать пользователя' : 'Новый пользователь' }}</v-card-title>
+      <v-card-title>{{
+        user?.id ? 'Редактировать пользователя' : 'Новый пользователь'
+      }}</v-card-title>
 
       <v-card-text>
-        <v-text-field v-model="form.username" label="Имя" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.username"
+          label="Имя"
+          variant="outlined"
+          density="comfortable"
+        />
         <v-text-field v-model="form.login" label="Логин" variant="outlined" density="comfortable" />
         <v-text-field
           type="password"
@@ -47,7 +58,10 @@ const roles = ref([])
 watch(
   () => props.user,
   (newVal) => {
-    Object.assign(form, newVal || { username: '', login: '', role: '', id: null, password_hash: '' })
+    Object.assign(
+      form,
+      newVal || { username: '', login: '', role: '', id: null, password_hash: '' },
+    )
   },
   { immediate: true },
 )

@@ -10,9 +10,7 @@
       <v-btn variant="text" :to="'/contracts'" prepend-icon="mdi-file-document-multiple">
         Договоры
       </v-btn>
-      <v-btn variant="text" :to="'/organizations'" prepend-icon="mdi-domain">
-        Организации
-      </v-btn>
+      <v-btn variant="text" :to="'/organizations'" prepend-icon="mdi-domain"> Организации </v-btn>
       <v-btn variant="text" :to="'/responsibleperson'" prepend-icon="mdi-account-tie">
         Ответственные
       </v-btn>
@@ -30,7 +28,9 @@
       {{ authStore.user?.username || authStore.user?.login || 'Пользователь' }}
     </v-chip>
 
-    <v-btn v-if="!isAuthorized" variant="tonal" :to="'/login'" prepend-icon="mdi-login">Войти</v-btn>
+    <v-btn v-if="!isAuthorized" variant="tonal" :to="'/login'" prepend-icon="mdi-login"
+      >Войти</v-btn
+    >
     <v-btn v-else variant="tonal" prepend-icon="mdi-logout" @click="handleLogout">Выйти</v-btn>
   </v-app-bar>
 
@@ -88,7 +88,11 @@ const navItems = computed(() => {
 
   if (role.value === 'admin') {
     items.push({ title: 'Пользователи', to: '/admin/users', icon: 'mdi-account-cog' })
-    items.push({ title: 'Статусы договоров', to: '/admin/contract-statuses', icon: 'mdi-tag-multiple' })
+    items.push({
+      title: 'Статусы договоров',
+      to: '/admin/contract-statuses',
+      icon: 'mdi-tag-multiple',
+    })
   }
 
   return items
@@ -96,8 +100,18 @@ const navItems = computed(() => {
 
 const quickActions = computed(() => {
   const actions = [
-    { key: 'new-contract', title: 'Новый договор', to: '/contracts?new=1', icon: 'mdi-plus-circle-outline' },
-    { key: 'new-org', title: 'Новая организация', to: '/organizations?new=1', icon: 'mdi-domain-plus' },
+    {
+      key: 'new-contract',
+      title: 'Новый договор',
+      to: '/contracts?new=1',
+      icon: 'mdi-plus-circle-outline',
+    },
+    {
+      key: 'new-org',
+      title: 'Новая организация',
+      to: '/organizations?new=1',
+      icon: 'mdi-domain-plus',
+    },
     {
       key: 'new-person',
       title: 'Новый ответственный',
@@ -107,7 +121,12 @@ const quickActions = computed(() => {
   ]
 
   if (role.value === 'admin') {
-    actions.push({ key: 'new-user', title: 'Новый пользователь', to: '/admin/users?new=1', icon: 'mdi-account-multiple-plus' })
+    actions.push({
+      key: 'new-user',
+      title: 'Новый пользователь',
+      to: '/admin/users?new=1',
+      icon: 'mdi-account-multiple-plus',
+    })
   }
 
   return actions

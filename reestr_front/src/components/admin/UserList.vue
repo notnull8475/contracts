@@ -15,7 +15,13 @@
 
     <template #item.actions="{ item }">
       <v-btn icon="mdi-pencil" size="small" variant="text" @click="$emit('edit', item)" />
-      <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="$emit('delete', item.id)" />
+      <v-btn
+        icon="mdi-delete"
+        size="small"
+        variant="text"
+        color="error"
+        @click="$emit('delete', item.id)"
+      />
     </template>
   </v-data-table>
 </template>

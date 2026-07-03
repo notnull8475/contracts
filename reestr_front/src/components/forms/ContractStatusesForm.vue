@@ -66,10 +66,7 @@
             </p>
 
             <v-list density="comfortable" rounded="lg" border>
-              <v-list-item
-                v-for="status in statusesOpt"
-                :key="status.id"
-              >
+              <v-list-item v-for="status in statusesOpt" :key="status.id">
                 <template #prepend>
                   <div
                     class="mr-3 rounded"

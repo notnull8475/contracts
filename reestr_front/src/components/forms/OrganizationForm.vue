@@ -1,9 +1,13 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="960">
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
+    max-width="960"
+  >
     <v-card rounded="lg">
       <v-card-title>{{
-          organization?.id ? 'Редактировать организацию' : 'Добавить организацию'
-        }}</v-card-title>
+        organization?.id ? 'Редактировать организацию' : 'Добавить организацию'
+      }}</v-card-title>
       <v-card-text>
         <!-- ИНН с кнопкой автозаполнения -->
         <div class="d-flex align-center gap-2">
@@ -39,28 +43,63 @@
         />
 
         <!-- Полное наименование с ОПФ -->
-        <v-text-field v-model="form.full_name_with_opf" label="Полное наименование с ОПФ" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.full_name_with_opf"
+          label="Полное наименование с ОПФ"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- Фактический адрес -->
-        <v-text-field v-model="form.fact_address" label="Фактический адрес" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.fact_address"
+          label="Фактический адрес"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- Юридический адрес -->
-        <v-text-field v-model="form.legal_address" label="Юридический адрес" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.legal_address"
+          label="Юридический адрес"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- ОГРН -->
         <v-text-field v-model="form.ogrn" label="ОГРН" variant="outlined" density="comfortable" />
 
         <!-- Должность руководителя -->
-        <v-text-field v-model="form.management_post" label="Должность руководителя" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.management_post"
+          label="Должность руководителя"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- ФИО руководителя -->
-        <v-text-field v-model="form.management_name" label="ФИО руководителя" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.management_name"
+          label="ФИО руководителя"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- Полная ОПФ -->
-        <v-text-field v-model="form.opf_full" label="Организационно-правовая форма (полная)" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.opf_full"
+          label="Организационно-правовая форма (полная)"
+          variant="outlined"
+          density="comfortable"
+        />
 
         <!-- Краткая ОПФ -->
-        <v-text-field v-model="form.opf_short" label="Организационно-правовая форма (краткая)" variant="outlined" density="comfortable" />
+        <v-text-field
+          v-model="form.opf_short"
+          label="Организационно-правовая форма (краткая)"
+          variant="outlined"
+          density="comfortable"
+        />
       </v-card-text>
       <v-card-actions>
         <v-btn v-if="organization?.id" color="error" @click="deleteItem">Удалить</v-btn>
@@ -101,25 +140,28 @@ const form = reactive({
 
 const errors = reactive({
   short_name_with_opf: '',
-  inn: ''
+  inn: '',
 })
 
 watch(
   () => props.organization,
   (newVal) => {
-    Object.assign(form, newVal || {
-      id: null,
-      short_name_with_opf: '',
-      inn: null,
-      fact_address: '',
-      legal_address: '',
-      management_post: '',
-      management_name: '',
-      ogrn: '',
-      full_name_with_opf: '',
-      opf_full: '',
-      opf_short: '',
-    })
+    Object.assign(
+      form,
+      newVal || {
+        id: null,
+        short_name_with_opf: '',
+        inn: null,
+        fact_address: '',
+        legal_address: '',
+        management_post: '',
+        management_name: '',
+        ogrn: '',
+        full_name_with_opf: '',
+        opf_full: '',
+        opf_short: '',
+      },
+    )
     clearErrors()
   },
   { immediate: true },
@@ -167,7 +209,6 @@ async function fillByInn() {
     const orgData = await organizationStore.getOrganizationByInn(form.inn)
     // if (response && response.data) {
     if (orgData) {
-
       console.log(orgData)
 
       // Заполняем форму данными с бэкенда
@@ -202,7 +243,7 @@ async function save() {
     // Преобразуем ИНН в число перед отправкой
     const formData = {
       ...form,
-      inn: Number(form.inn) // Приводим к числу
+      inn: Number(form.inn), // Приводим к числу
     }
 
     await emit('save', formData)
