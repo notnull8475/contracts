@@ -10,13 +10,28 @@
         </div>
 
         <div class="d-flex flex-wrap ga-2">
-          <v-btn color="secondary" variant="tonal" prepend-icon="mdi-shape-outline" @click="openTypeForm()">
+          <v-btn
+            color="secondary"
+            variant="tonal"
+            prepend-icon="mdi-shape-outline"
+            @click="openTypeForm()"
+          >
             Типы
           </v-btn>
-          <v-btn color="secondary" variant="tonal" prepend-icon="mdi-tag-multiple" @click="statusesDialog = true">
+          <v-btn
+            color="secondary"
+            variant="tonal"
+            prepend-icon="mdi-tag-multiple"
+            @click="statusesDialog = true"
+          >
             Статусы
           </v-btn>
-          <v-btn color="secondary" variant="tonal" prepend-icon="mdi-currency-rub" @click="pricelistDialog = true">
+          <v-btn
+            color="secondary"
+            variant="tonal"
+            prepend-icon="mdi-currency-rub"
+            @click="pricelistDialog = true"
+          >
             Прайс
           </v-btn>
           <v-btn color="primary" prepend-icon="mdi-plus" @click="openForm()">Новый договор</v-btn>
@@ -54,12 +69,9 @@
           @update:model-value="onFilterChange"
         >
           <template #selection="{ item }">
-            <v-chip
-              v-if="item.raw.color"
-              :color="item.raw.color"
-              size="small"
-              variant="tonal"
-            >{{ item.title }}</v-chip>
+            <v-chip v-if="item.raw.color" :color="item.raw.color" size="small" variant="tonal">{{
+              item.title
+            }}</v-chip>
             <span v-else>{{ item.title }}</span>
           </template>
         </v-select>
@@ -67,7 +79,9 @@
 
       <div class="d-flex flex-wrap ga-2 mt-4">
         <v-chip color="primary" variant="tonal">Всего: {{ totalContracts }}</v-chip>
-        <v-chip color="warning" variant="tonal">Загружено файлов: {{ Object.keys(fileCounts).length > 0 ? '✓' : '...' }}</v-chip>
+        <v-chip color="warning" variant="tonal"
+          >Загружено файлов: {{ Object.keys(fileCounts).length > 0 ? '✓' : '...' }}</v-chip
+        >
       </div>
     </v-card-text>
   </v-card>
@@ -141,7 +155,7 @@
     :agreement="selectedSupplementary"
     :files="selectedSaFiles"
     @save="saveSupplementaryAgreement"
-    @files-loaded="onSaFilesLoaded"
+    @file-deleted="onSaFileDeleted"
   />
 
   <v-dialog v-model="filesDialog" max-width="720">
@@ -155,12 +169,21 @@
         </v-alert>
 
         <v-list v-else density="comfortable">
-          <v-list-item v-for="file in selectedContractFiles" :key="file.id" @click="downloadFile(file.id)">
+          <v-list-item
+            v-for="file in selectedContractFiles"
+            :key="file.id"
+            @click="downloadFile(file.id)"
+          >
             <template #prepend><v-icon>mdi-file-document</v-icon></template>
             <v-list-item-title>{{ file.original_name }}</v-list-item-title>
             <v-list-item-subtitle>{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
             <template #append>
-              <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadFile(file.id)" />
+              <v-btn
+                icon="mdi-download"
+                size="small"
+                variant="text"
+                @click.stop="downloadFile(file.id)"
+              />
             </template>
           </v-list-item>
         </v-list>
@@ -183,12 +206,21 @@
         </v-alert>
 
         <v-list v-else density="comfortable">
-          <v-list-item v-for="file in selectedContractUpdFiles" :key="file.id" @click="downloadFile(file.id)">
+          <v-list-item
+            v-for="file in selectedContractUpdFiles"
+            :key="file.id"
+            @click="downloadFile(file.id)"
+          >
             <template #prepend><v-icon>mdi-file-document-outline</v-icon></template>
             <v-list-item-title>{{ file.original_name }}</v-list-item-title>
             <v-list-item-subtitle>{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
             <template #append>
-              <v-btn icon="mdi-download" size="small" variant="text" @click.stop="downloadFile(file.id)" />
+              <v-btn
+                icon="mdi-download"
+                size="small"
+                variant="text"
+                @click.stop="downloadFile(file.id)"
+              />
             </template>
           </v-list-item>
         </v-list>
@@ -434,8 +466,11 @@ async function saveContract(payload) {
   const pendingFiles = Array.isArray(payload?.pendingFiles) ? payload.pendingFiles : []
   const pendingUpdFiles = Array.isArray(payload?.pendingUpdFiles) ? payload.pendingUpdFiles : []
 
-  contract.number = contract.number?.trim() ? contract.number.trim() : `б/н ${new Date().toISOString().slice(0, 10)}`
-  contract.organization_id = contract.organization_id || (await ensureOrganizationIdForIncompleteContract())
+  contract.number = contract.number?.trim()
+    ? contract.number.trim()
+    : `б/н ${new Date().toISOString().slice(0, 10)}`
+  contract.organization_id =
+    contract.organization_id || (await ensureOrganizationIdForIncompleteContract())
 
   try {
     if (contract.id) {
@@ -471,13 +506,23 @@ async function saveContract(payload) {
 async function ensureOrganizationIdForIncompleteContract() {
   if (unknownOrganizationId.value) return unknownOrganizationId.value
   const existing = organizations.value.find((org) => org.short_name_with_opf === 'Не указано')
-  if (existing?.id) { unknownOrganizationId.value = existing.id; return existing.id }
+  if (existing?.id) {
+    unknownOrganizationId.value = existing.id
+    return existing.id
+  }
 
   const generatedInn = Number(`9${Date.now().toString().slice(-9)}`)
   const created = await organizationStore.addOrganization({
-    short_name_with_opf: 'Не указано', inn: generatedInn,
-    fact_address: '', legal_address: '', management_post: '', management_name: '',
-    ogrn: '', full_name_with_opf: 'Организация не указана', opf_full: '', opf_short: '',
+    short_name_with_opf: 'Не указано',
+    inn: generatedInn,
+    fact_address: '',
+    legal_address: '',
+    management_post: '',
+    management_name: '',
+    ogrn: '',
+    full_name_with_opf: 'Организация не указана',
+    opf_full: '',
+    opf_short: '',
   })
   organizations.value.push(created)
   unknownOrganizationId.value = created.id
@@ -485,7 +530,9 @@ async function ensureOrganizationIdForIncompleteContract() {
 }
 
 async function uploadPendingFiles(contractId, files) {
-  const results = await Promise.allSettled(files.map((file) => contractStore.uploadFile(contractId, file, 'contract')))
+  const results = await Promise.allSettled(
+    files.map((file) => contractStore.uploadFile(contractId, file, 'contract')),
+  )
   const ok = results.filter((r) => r.status === 'fulfilled').length
   const fail = results.length - ok
   if (ok) toast.push(`Загружено файлов: ${ok}`, 'success')
@@ -493,7 +540,9 @@ async function uploadPendingFiles(contractId, files) {
 }
 
 async function uploadPendingUpdFiles(contractId, files) {
-  const results = await Promise.allSettled(files.map((file) => contractStore.uploadFile(contractId, file, 'upd')))
+  const results = await Promise.allSettled(
+    files.map((file) => contractStore.uploadFile(contractId, file, 'upd')),
+  )
   const ok = results.filter((r) => r.status === 'fulfilled').length
   const fail = results.length - ok
   if (ok) toast.push(`Загружено УПД: ${ok}`, 'success')
@@ -501,49 +550,82 @@ async function uploadPendingUpdFiles(contractId, files) {
 }
 
 async function saveType(type) {
-  try { await validityTypesStore.addValidityTypes(type); validityTypes.value = await validityTypesStore.getValidityTypes() }
-  catch (e) { console.error('Ошибка сохранения', e) }
+  try {
+    await validityTypesStore.addValidityTypes(type)
+    validityTypes.value = await validityTypesStore.getValidityTypes()
+  } catch (e) {
+    console.error('Ошибка сохранения', e)
+  }
 }
 
 async function deleteType(id) {
-  try { await validityTypesStore.delValidityTypes(id); validityTypes.value = validityTypes.value.filter((t) => t.id !== id) }
-  catch (e) { console.error('Ошибка удаления типа', e) }
+  try {
+    await validityTypesStore.delValidityTypes(id)
+    validityTypes.value = validityTypes.value.filter((t) => t.id !== id)
+  } catch (e) {
+    console.error('Ошибка удаления типа', e)
+  }
 }
 
 async function saveStatus(dto) {
-  try { const c = await contractStatusStore.addStatus(dto); contractStatuses.value.push(c) }
-  catch (e) { toast.push(e.message || 'Ошибка добавления статуса', 'error') }
+  try {
+    const c = await contractStatusStore.addStatus(dto)
+    contractStatuses.value.push(c)
+  } catch (e) {
+    toast.push(e.message || 'Ошибка добавления статуса', 'error')
+  }
 }
 
 async function deleteStatus(id) {
   try {
     await contractStatusStore.deleteStatus(id)
     contractStatuses.value = contractStatuses.value.filter((s) => s.id !== id)
-    contracts.value.forEach((c) => { if (c.contract_status_id === id) c.contract_status_id = null })
-  } catch (e) { toast.push(e.message || 'Ошибка удаления статуса', 'error') }
+    contracts.value.forEach((c) => {
+      if (c.contract_status_id === id) c.contract_status_id = null
+    })
+  } catch (e) {
+    toast.push(e.message || 'Ошибка удаления статуса', 'error')
+  }
 }
 
 async function deleteContract(id) {
-  try { await contractStore.delContract(id); await fetchContracts() }
-  catch (e) { console.error('Ошибка удаления', e); alert(e.message) }
+  try {
+    await contractStore.delContract(id)
+    await fetchContracts()
+  } catch (e) {
+    console.error('Ошибка удаления', e)
+    alert(e.message)
+  }
 }
 
 async function savePricelistItem(dto) {
-  try { const c = await pricelistStore.add(dto); pricelist.value.push(c); toast.push('Позиция добавлена', 'success') }
-  catch (e) { toast.push(e.message || 'Ошибка добавления позиции', 'error') }
+  try {
+    const c = await pricelistStore.add(dto)
+    pricelist.value.push(c)
+    toast.push('Позиция добавлена', 'success')
+  } catch (e) {
+    toast.push(e.message || 'Ошибка добавления позиции', 'error')
+  }
 }
 
 async function deletePricelistItem(id) {
-  try { await pricelistStore.delete(id); pricelist.value = pricelist.value.filter((p) => p.id !== id); toast.push('Позиция удалена', 'success') }
-  catch (e) { toast.push(e.message || 'Ошибка удаления позиции', 'error') }
+  try {
+    await pricelistStore.delete(id)
+    pricelist.value = pricelist.value.filter((p) => p.id !== id)
+    toast.push('Позиция удалена', 'success')
+  } catch (e) {
+    toast.push(e.message || 'Ошибка удаления позиции', 'error')
+  }
 }
 
 async function handleOpenSupplementaryForm({ contractId, agreement }) {
-  selectedSupplementary.value = agreement ? { ...agreement, contract_id: contractId } : { contract_id: contractId }
+  selectedSupplementary.value = agreement
+    ? { ...agreement, contract_id: contractId }
+    : { contract_id: contractId }
   selectedSaFiles.value = []
   if (agreement?.id) {
     try {
-      const files = await contractStore.getSaFiles ? contractStore.getSaFiles(agreement.id) : []
+      const files = (await contractStore.getSaFiles) ? contractStore.getSaFiles(agreement.id) : []
       selectedSaFiles.value = Array.isArray(files) ? files : []
     } catch (e) {
       console.error('Failed to load SA files', e)
@@ -570,14 +652,13 @@ async function saveSupplementaryAgreement(dto) {
 
     if (saId && pendingFiles.length) {
       const cid = cleanDto.contract_id
-      for (const file of pendingFiles) {
-        try {
-          await contractStore.uploadFile(cid, file, 'supplementary', saId)
-        } catch (e) {
-          console.error('Failed to upload file', e)
-        }
-      }
-      toast.push(`Загружено файлов: ${pendingFiles.length}`, 'success')
+      const results = await Promise.allSettled(
+        pendingFiles.map((file) => contractStore.uploadFile(cid, file, 'supplementary', saId)),
+      )
+      const ok = results.filter((r) => r.status === 'fulfilled').length
+      const fail = results.length - ok
+      if (ok) toast.push(`Загружено файлов: ${ok}`, 'success')
+      if (fail) toast.push(`Не удалось загрузить файлов: ${fail}`, 'error')
     }
 
     saDialog.value = false
@@ -585,47 +666,64 @@ async function saveSupplementaryAgreement(dto) {
       saCounts.value[cleanDto.contract_id] = await saStore.countByContract(cleanDto.contract_id)
       await fetchContracts()
     }
-  } catch (e) { toast.push(e.message || 'Ошибка сохранения соглашения', 'error') }
+  } catch (e) {
+    toast.push(e.message || 'Ошибка сохранения соглашения', 'error')
+  }
 }
 
-async function onSaFilesLoaded({ saId, filesRef }) {
-  if (!saId) return
-  try {
-    const files = await contractStore.getContractFiles ? contractStore.getContractFiles(saId, 'supplementary') : []
-    filesRef.value = Array.isArray(files) ? files : []
-  } catch (e) {
-    console.error('Failed to load SA files', e)
-  }
+function onSaFileDeleted(fileId) {
+  selectedSaFiles.value = selectedSaFiles.value.filter((f) => f.id !== fileId)
 }
 
 function handleOrganizationAdded(organization) {
   if (!organization?.id) return
-  if (!organizations.value.some((item) => item.id === organization.id)) organizations.value.push(organization)
+  if (!organizations.value.some((item) => item.id === organization.id))
+    organizations.value.push(organization)
 }
 
 async function openContractFiles(contract) {
-  filesDialogLoading.value = true; selectedContractFiles.value = []
+  filesDialogLoading.value = true
+  selectedContractFiles.value = []
   try {
     const files = await contractStore.getContractFiles(contract.id, 'contract')
     selectedContractFiles.value = Array.isArray(files) ? files : []
-    if (selectedContractFiles.value.length === 1) { downloadFile(selectedContractFiles.value[0].id); return }
+    if (selectedContractFiles.value.length === 1) {
+      downloadFile(selectedContractFiles.value[0].id)
+      return
+    }
     filesDialog.value = true
-  } catch (error) { toast.push('Не удалось получить список файлов', 'error') }
-  finally { filesDialogLoading.value = false }
+  } catch (error) {
+    toast.push('Не удалось получить список файлов', 'error')
+  } finally {
+    filesDialogLoading.value = false
+  }
 }
 
 async function openContractUpdFiles(contract) {
-  updDialogLoading.value = true; selectedContractUpdFiles.value = []
+  updDialogLoading.value = true
+  selectedContractUpdFiles.value = []
   try {
     const files = await contractStore.getContractFiles(contract.id, 'upd')
     selectedContractUpdFiles.value = Array.isArray(files) ? files : []
-    if (selectedContractUpdFiles.value.length === 1) { downloadFile(selectedContractUpdFiles.value[0].id); return }
+    if (selectedContractUpdFiles.value.length === 1) {
+      downloadFile(selectedContractUpdFiles.value[0].id)
+      return
+    }
     updDialog.value = true
-  } catch (error) { toast.push('Не удалось получить список УПД', 'error') }
-  finally { updDialogLoading.value = false }
+  } catch (error) {
+    toast.push('Не удалось получить список УПД', 'error')
+  } finally {
+    updDialogLoading.value = false
+  }
 }
 
-function downloadFile(fileId) { contractStore.downloadFile(fileId) }
+async function downloadFile(fileId) {
+  try {
+    await contractStore.downloadFile(fileId)
+  } catch (e) {
+    toast.push('Не удалось скачать файл', 'error')
+  }
+}
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`

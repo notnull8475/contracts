@@ -1,12 +1,22 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="1100" scrollable>
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
+    max-width="1100"
+    scrollable
+  >
     <v-card rounded="lg">
       <v-card-title>{{ form.id ? 'Редактировать договор' : 'Добавить договор' }}</v-card-title>
 
       <v-card-text>
         <v-row dense>
           <v-col cols="12" md="4">
-            <v-text-field v-model="form.number" label="Номер договора" variant="outlined" density="comfortable" />
+            <v-text-field
+              v-model="form.number"
+              label="Номер договора"
+              variant="outlined"
+              density="comfortable"
+            />
           </v-col>
 
           <v-col cols="12" md="4">
@@ -60,7 +70,9 @@
               </template>
               <template #no-data>
                 <div class="pa-3 d-flex flex-column ga-2">
-                  <span class="text-body-2 text-medium-emphasis">Организация не найдена в справочнике</span>
+                  <span class="text-body-2 text-medium-emphasis"
+                    >Организация не найдена в справочнике</span
+                  >
                   <v-btn
                     color="primary"
                     size="small"
@@ -100,7 +112,12 @@
           </v-col>
 
           <v-col cols="12" md="6">
-            <v-text-field v-model="form.address" label="Адрес" variant="outlined" density="comfortable" />
+            <v-text-field
+              v-model="form.address"
+              label="Адрес"
+              variant="outlined"
+              density="comfortable"
+            />
           </v-col>
 
           <v-col cols="12" md="6">
@@ -113,7 +130,14 @@
           </v-col>
 
           <v-col cols="12">
-            <v-textarea v-model="form.comment" label="Комментарий" variant="outlined" density="comfortable" rows="2" auto-grow />
+            <v-textarea
+              v-model="form.comment"
+              label="Комментарий"
+              variant="outlined"
+              density="comfortable"
+              rows="2"
+              auto-grow
+            />
           </v-col>
 
           <v-col cols="12" md="4">
@@ -135,7 +159,9 @@
               <template #item="{ item, props: itemProps }">
                 <v-list-item v-bind="itemProps">
                   <template #append>
-                    <span class="text-caption text-medium-emphasis">{{ formatPrice(item.raw.price) }}</span>
+                    <span class="text-caption text-medium-emphasis">{{
+                      formatPrice(item.raw.price)
+                    }}</span>
                   </template>
                 </v-list-item>
               </template>
@@ -169,7 +195,9 @@
               placeholder="Не задан"
             >
               <template #selection="{ item }">
-                <v-chip :color="item.raw.color" size="small" variant="tonal">{{ item.title }}</v-chip>
+                <v-chip :color="item.raw.color" size="small" variant="tonal">{{
+                  item.title
+                }}</v-chip>
               </template>
               <template #item="{ item, props: itemProps }">
                 <v-list-item v-bind="itemProps">
@@ -223,8 +251,19 @@
             <v-list-item-title>{{ file.original_name }}</v-list-item-title>
             <v-list-item-subtitle>{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
             <template #append>
-              <v-btn icon="mdi-download" size="small" variant="text" @click="downloadFile(file.id)" />
-              <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="removeFile(file.id)" />
+              <v-btn
+                icon="mdi-download"
+                size="small"
+                variant="text"
+                @click="downloadFile(file.id)"
+              />
+              <v-btn
+                icon="mdi-delete"
+                size="small"
+                variant="text"
+                color="error"
+                @click="removeFile(file.id)"
+              />
             </template>
           </v-list-item>
           <v-list-item v-if="!files.length">
@@ -238,11 +277,19 @@
             <v-list-item-title>{{ file.name }}</v-list-item-title>
             <v-list-item-subtitle>{{ formatFileSize(file.size) }}</v-list-item-subtitle>
             <template #append>
-              <v-btn icon="mdi-close" size="small" variant="text" color="error" @click="removePendingFile(idx)" />
+              <v-btn
+                icon="mdi-close"
+                size="small"
+                variant="text"
+                color="error"
+                @click="removePendingFile(idx)"
+              />
             </template>
           </v-list-item>
           <v-list-item v-if="!pendingFiles.length">
-            <v-list-item-title class="text-medium-emphasis">Файлы в очередь не добавлены</v-list-item-title>
+            <v-list-item-title class="text-medium-emphasis"
+              >Файлы в очередь не добавлены</v-list-item-title
+            >
           </v-list-item>
         </v-list>
 
@@ -287,8 +334,19 @@
             <v-list-item-title>{{ file.original_name }}</v-list-item-title>
             <v-list-item-subtitle>{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
             <template #append>
-              <v-btn icon="mdi-download" size="small" variant="text" @click="downloadFile(file.id)" />
-              <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="removeUpdFile(file.id)" />
+              <v-btn
+                icon="mdi-download"
+                size="small"
+                variant="text"
+                @click="downloadFile(file.id)"
+              />
+              <v-btn
+                icon="mdi-delete"
+                size="small"
+                variant="text"
+                color="error"
+                @click="removeUpdFile(file.id)"
+              />
             </template>
           </v-list-item>
           <v-list-item v-if="!updFiles.length">
@@ -302,11 +360,19 @@
             <v-list-item-title>{{ file.name }}</v-list-item-title>
             <v-list-item-subtitle>{{ formatFileSize(file.size) }}</v-list-item-subtitle>
             <template #append>
-              <v-btn icon="mdi-close" size="small" variant="text" color="error" @click="removePendingUpdFile(idx)" />
+              <v-btn
+                icon="mdi-close"
+                size="small"
+                variant="text"
+                color="error"
+                @click="removePendingUpdFile(idx)"
+              />
             </template>
           </v-list-item>
           <v-list-item v-if="!pendingUpdFiles.length">
-            <v-list-item-title class="text-medium-emphasis">УПД в очередь не добавлены</v-list-item-title>
+            <v-list-item-title class="text-medium-emphasis"
+              >УПД в очередь не добавлены</v-list-item-title
+            >
           </v-list-item>
         </v-list>
 
@@ -317,23 +383,35 @@
             <v-expansion-panel-title class="text-subtitle-2">
               <v-icon size="small" class="mr-2">mdi-history</v-icon>
               История изменений
-              <v-chip v-if="historyItems.length" size="x-small" class="ml-2">{{ historyItems.length }}</v-chip>
+              <v-chip v-if="historyItems.length" size="x-small" class="ml-2">{{
+                historyItems.length
+              }}</v-chip>
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <v-progress-linear v-if="historyLoading" indeterminate color="primary" class="mb-2" />
               <v-list v-if="historyItems.length" density="compact">
                 <v-list-item v-for="h in historyItems" :key="h.id">
                   <template #prepend>
-                    <v-icon size="small" :color="historyColor(h.action)">{{ historyIcon(h.action) }}</v-icon>
+                    <v-icon size="small" :color="historyColor(h.action)">{{
+                      historyIcon(h.action)
+                    }}</v-icon>
                   </template>
-                  <v-list-item-title class="text-body-2">{{ historyLabel(h.action) }}</v-list-item-title>
-                  <v-list-item-subtitle v-if="h.description">{{ h.description }}</v-list-item-subtitle>
+                  <v-list-item-title class="text-body-2">{{
+                    historyLabel(h.action)
+                  }}</v-list-item-title>
+                  <v-list-item-subtitle v-if="h.description">{{
+                    h.description
+                  }}</v-list-item-subtitle>
                   <template #append>
-                    <span class="text-caption text-medium-emphasis">{{ formatHistoryDate(h.created_at) }}</span>
+                    <span class="text-caption text-medium-emphasis">{{
+                      formatHistoryDate(h.created_at)
+                    }}</span>
                   </template>
                 </v-list-item>
               </v-list>
-              <p v-else-if="!historyLoading" class="text-caption text-medium-emphasis">Нет записей</p>
+              <p v-else-if="!historyLoading" class="text-caption text-medium-emphasis">
+                Нет записей
+              </p>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
@@ -368,8 +446,19 @@
               <span v-if="sa.price"> · {{ formatPrice(sa.price) }}</span>
             </v-list-item-subtitle>
             <template #append>
-              <v-btn icon="mdi-pencil" size="small" variant="text" @click="openSupplementaryForm(sa)" />
-              <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="removeSupplementaryAgreement(sa.id)" />
+              <v-btn
+                icon="mdi-pencil"
+                size="small"
+                variant="text"
+                @click="openSupplementaryForm(sa)"
+              />
+              <v-btn
+                icon="mdi-delete"
+                size="small"
+                variant="text"
+                color="error"
+                @click="removeSupplementaryAgreement(sa.id)"
+              />
             </template>
           </v-list-item>
           <v-list-item v-if="!supplementaryAgreements.length">
@@ -421,17 +510,29 @@
             />
           </v-col>
           <v-col cols="12" md="6">
-            <v-text-field v-model="quickOrg.legal_address" label="Юридический адрес" variant="outlined" density="comfortable" />
+            <v-text-field
+              v-model="quickOrg.legal_address"
+              label="Юридический адрес"
+              variant="outlined"
+              density="comfortable"
+            />
           </v-col>
           <v-col cols="12" md="6">
-            <v-text-field v-model="quickOrg.fact_address" label="Фактический адрес" variant="outlined" density="comfortable" />
+            <v-text-field
+              v-model="quickOrg.fact_address"
+              label="Фактический адрес"
+              variant="outlined"
+              density="comfortable"
+            />
           </v-col>
         </v-row>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn text @click="quickOrgDialog = false">Отмена</v-btn>
-        <v-btn color="primary" :loading="quickOrgSaving" @click="saveQuickOrganization">Сохранить</v-btn>
+        <v-btn color="primary" :loading="quickOrgSaving" @click="saveQuickOrganization"
+          >Сохранить</v-btn
+        >
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -454,8 +555,23 @@ const props = defineProps([
   'statusesOpt',
   'pricelistOpt',
 ])
-const emit = defineEmits(['update:modelValue', 'save', 'delete', 'organization-added', 'open-supplementary-form'])
-const { modelValue, contract, organizationsOpt, organizationsRaw, respPersonsOpt, validityTypesOpt, statusesOpt, pricelistOpt } = toRefs(props)
+const emit = defineEmits([
+  'update:modelValue',
+  'save',
+  'delete',
+  'organization-added',
+  'open-supplementary-form',
+])
+const {
+  modelValue,
+  contract,
+  organizationsOpt,
+  organizationsRaw,
+  respPersonsOpt,
+  validityTypesOpt,
+  statusesOpt,
+  pricelistOpt,
+} = toRefs(props)
 
 const contractStore = ContractUtil()
 const organizationStore = OrganizationUtil()
@@ -518,9 +634,10 @@ const quickOrgErrors = reactive({
 })
 
 const filteredOrganizations = computed(() => {
-  const source = Array.isArray(organizationsRaw.value) && organizationsRaw.value.length
-    ? organizationsRaw.value
-    : organizationsOpt.value
+  const source =
+    Array.isArray(organizationsRaw.value) && organizationsRaw.value.length
+      ? organizationsRaw.value
+      : organizationsOpt.value
 
   if (!source) return []
 
@@ -617,7 +734,10 @@ const formattedDateTo = computed({
 watch(
   () => [form.date_from, form.date_to],
   () => {
-    if (periodChanging.value) { periodChanging.value = false; return }
+    if (periodChanging.value) {
+      periodChanging.value = false
+      return
+    }
     form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
   },
 )
@@ -836,7 +956,13 @@ function historyLabel(action) {
 
 function formatHistoryDate(dateStr) {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function openSupplementaryForm(agreement = null) {
@@ -942,8 +1068,12 @@ function calculateContractPeriod(fromDate, toDate) {
   return Math.max(months, 0)
 }
 
-function downloadFile(fileId) {
-  contractStore.downloadFile(fileId)
+async function downloadFile(fileId) {
+  try {
+    await contractStore.downloadFile(fileId)
+  } catch (e) {
+    toast.push('Не удалось скачать файл', 'error')
+  }
 }
 
 async function removeFile(fileId) {

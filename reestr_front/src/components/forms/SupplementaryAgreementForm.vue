@@ -73,25 +73,50 @@
           </v-btn>
 
           <v-list density="compact" class="mt-1">
-            <v-list-item v-for="file in files" :key="file.id">
+            <v-list-item v-for="file in existingFiles" :key="file.id">
               <template #prepend><v-icon size="small">mdi-file-document</v-icon></template>
               <v-list-item-title class="text-body-2">{{ file.original_name }}</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">{{ formatFileSize(file.file_size) }}</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-caption">{{
+                formatFileSize(file.file_size)
+              }}</v-list-item-subtitle>
               <template #append>
-                <v-btn icon="mdi-download" size="x-small" variant="text" @click="downloadFile(file.id)" />
-                <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click="deleteFile(file.id)" />
+                <v-btn
+                  icon="mdi-download"
+                  size="x-small"
+                  variant="text"
+                  @click="downloadFile(file.id)"
+                />
+                <v-btn
+                  icon="mdi-delete"
+                  size="x-small"
+                  variant="text"
+                  color="error"
+                  @click="deleteFile(file.id)"
+                />
               </template>
             </v-list-item>
             <v-list-item v-for="(f, idx) in pendingFiles" :key="`p-${idx}`">
-              <template #prepend><v-icon size="small" color="warning">mdi-file-plus</v-icon></template>
+              <template #prepend
+                ><v-icon size="small" color="warning">mdi-file-plus</v-icon></template
+              >
               <v-list-item-title class="text-body-2">{{ f.name }}</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">{{ formatFileSize(f.size) }}</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-caption">{{
+                formatFileSize(f.size)
+              }}</v-list-item-subtitle>
               <template #append>
-                <v-btn icon="mdi-close" size="x-small" variant="text" color="error" @click="removePending(idx)" />
+                <v-btn
+                  icon="mdi-close"
+                  size="x-small"
+                  variant="text"
+                  color="error"
+                  @click="removePending(idx)"
+                />
               </template>
             </v-list-item>
-            <v-list-item v-if="!files.length && !pendingFiles.length">
-              <v-list-item-title class="text-caption text-medium-emphasis">Файлы не прикреплены</v-list-item-title>
+            <v-list-item v-if="!existingFiles.length && !pendingFiles.length">
+              <v-list-item-title class="text-caption text-medium-emphasis"
+                >Файлы не прикреплены</v-list-item-title
+              >
             </v-list-item>
           </v-list>
         </div>
@@ -123,9 +148,11 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
+import { ContractUtil } from '@/store/contracts.js'
 
-const props = defineProps(['modelValue', 'agreement'])
-const emit = defineEmits(['update:modelValue', 'save', 'files-loaded'])
+const props = defineProps(['modelValue', 'agreement', 'files'])
+const emit = defineEmits(['update:modelValue', 'save', 'file-deleted'])
+const contractStore = ContractUtil()
 
 const form = reactive({
   id: null,
@@ -136,20 +163,19 @@ const form = reactive({
 })
 
 const selectedFile = ref(null)
-const files = ref([])
+const existingFiles = computed(() => props.files || [])
 const pendingFiles = ref([])
 const uploading = ref(false)
 
 watch(
   () => props.agreement,
   async (val) => {
-    Object.assign(form, val || { id: null, number: '', date_from: null, description: '', price: null })
+    Object.assign(
+      form,
+      val || { id: null, number: '', date_from: null, description: '', price: null },
+    )
     selectedFile.value = null
     pendingFiles.value = []
-    files.value = []
-    if (form.id) {
-      emit('files-loaded', { saId: form.id, files })
-    }
   },
   { immediate: true },
 )
@@ -164,9 +190,14 @@ const formattedDate = computed({
 })
 
 function save() {
+  const allPending = [...pendingFiles.value]
+  if (selectedFile.value) {
+    allPending.push(selectedFile.value)
+    selectedFile.value = null
+  }
   emit('save', {
     ...form,
-    pendingFiles: [...pendingFiles.value],
+    pendingFiles: allPending,
   })
   emit('update:modelValue', false)
 }
@@ -182,19 +213,18 @@ function removePending(idx) {
   pendingFiles.value.splice(idx, 1)
 }
 
-function downloadFile(fileId) {
-  window.open(`/api/v1/contracts/files/download/${fileId}`, '_blank')
+async function downloadFile(fileId) {
+  try {
+    await contractStore.downloadFile(fileId)
+  } catch (e) {
+    console.error('Failed to download file', e)
+  }
 }
 
 async function deleteFile(fileId) {
   try {
-    const res = await fetch(`/api/v1/contracts/files/delete/${fileId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    })
-    if (res.ok) {
-      files.value = files.value.filter((f) => f.id !== fileId)
-    }
+    await contractStore.deleteFile(fileId)
+    emit('file-deleted', fileId)
   } catch (e) {
     console.error('Failed to delete file', e)
   }

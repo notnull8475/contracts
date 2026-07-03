@@ -5,6 +5,33 @@ import axios from '@/axios.js'
 
 const contractRequest = '/api/v1/contracts'
 
+function getFilenameFromHeaders(res, fallback) {
+  const disposition = res.headers['content-disposition'] || ''
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].replace(/"/g, '').trim())
+    } catch {
+      /* ignore */
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(disposition)
+  if (plain) return plain[1].trim()
+  return fallback
+}
+
+function triggerBlobDownload(res, fallbackName) {
+  const filename = getFilenameFromHeaders(res, fallbackName)
+  const url = window.URL.createObjectURL(res.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 export const ContractUtil = defineStore('contract', {
   state: () => ({}),
   actions: {
@@ -73,7 +100,10 @@ export const ContractUtil = defineStore('contract', {
       return res.data
     },
     async downloadFile(fileId) {
-      window.open(`/api/v1/contracts/files/download/${fileId}`, '_blank')
+      const res = await axios.get(`${contractRequest}/files/download/${fileId}`, {
+        responseType: 'blob',
+      })
+      triggerBlobDownload(res, `file_${fileId}`)
     },
     async deleteFile(fileId) {
       const requtil = useRequtil()
