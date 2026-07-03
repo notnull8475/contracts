@@ -64,7 +64,7 @@ pub async fn get_users(req: HttpRequest) -> impl Responder {
             username: user.username,
             role: user.role,
             login: user.login,
-            is_active: user.is_active,
+            is_active: Some(user.is_active),
         })
         .collect();
     info!("{:?}", users_without_passwords);

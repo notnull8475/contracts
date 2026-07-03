@@ -4,7 +4,7 @@ diesel::table! {
     contract (id) {
         id -> Int4,
         number -> Text,
-        date_from -> Nullable<Timestamp>,
+        date_from -> Nullable<Timestamptz>,
         organization_id -> Int4,
         type_of_validity -> Nullable<Int4>,
         responsible_person_id -> Nullable<Int4>,
@@ -128,7 +128,7 @@ diesel::table! {
         password_hash -> Varchar,
         #[max_length = 20]
         role -> Varchar,
-        is_active -> Nullable<Bool>,
+        is_active -> Bool,
     }
 }
 
