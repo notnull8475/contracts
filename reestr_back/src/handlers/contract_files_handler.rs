@@ -1,3 +1,6 @@
+use actix_web::http::header::{
+    Charset, ContentDisposition, DispositionParam, DispositionType, ExtendedValue,
+};
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_multipart::Multipart;
 use futures_util::TryStreamExt;
@@ -112,6 +115,44 @@ pub async fn get_contract_files(
     }
 }
 
+/// Заголовок вложения с именем файла по RFC 6266.
+///
+/// `ContentDisposition::attachment()` кладёт только `filename="…"` сырыми UTF-8 байтами:
+/// браузер читает значение заголовка как Latin-1 и «Договор.pdf» превращается в мусор.
+/// Поэтому имя отдаём в `filename*=UTF-8''…` (percent-encoding делает `ExtendedValue`),
+/// а в `filename=` оставляем ASCII-фолбэк для клиентов, не понимающих расширенную форму.
+fn attachment_disposition(orig_name: &str) -> ContentDisposition {
+    let ascii_fallback: String = orig_name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_graphic() || c == ' ' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .filter(|c| *c != '"' && *c != '\\')
+        .collect();
+
+    let ascii_fallback = if ascii_fallback.trim().is_empty() {
+        "file".to_string()
+    } else {
+        ascii_fallback
+    };
+
+    ContentDisposition {
+        disposition: DispositionType::Attachment,
+        parameters: vec![
+            DispositionParam::Filename(ascii_fallback),
+            DispositionParam::FilenameExt(ExtendedValue {
+                charset: Charset::Ext("UTF-8".to_owned()),
+                language_tag: None,
+                value: orig_name.as_bytes().to_vec(),
+            }),
+        ],
+    }
+}
+
 pub async fn download_file(
     req: HttpRequest,
     file_id: web::Path<i32>,
@@ -128,17 +169,13 @@ pub async fn download_file(
             match std::fs::read(&file_path) {
                 Ok(data) => {
                     let mut response = HttpResponse::Ok();
-                    response.insert_header(
-                        actix_web::http::header::ContentDisposition::attachment(&file.orig_name),
-                    );
+                    response.insert_header(attachment_disposition(&file.orig_name));
                     response.insert_header((
                         actix_web::http::header::CONTENT_TYPE,
                         file.mime_type_txt.clone(),
                     ));
-                    response.insert_header((
-                        actix_web::http::header::CONTENT_LENGTH,
-                        file.size_bytes.to_string(),
-                    ));
+                    // Content-Length выставляет сам body(): значение size_bytes из БД
+                    // соврало бы, если файл на диске отличается от записи.
                     Ok(response.body(data))
                 }
                 Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
@@ -184,5 +221,66 @@ pub async fn get_sa_files(
         Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
             "error": e
         }))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::attachment_disposition;
+    use actix_web::http::header::TryIntoHeaderValue;
+
+    fn header_value(orig_name: &str) -> String {
+        let value = attachment_disposition(orig_name)
+            .try_into_value()
+            .expect("заголовок должен собираться");
+        String::from_utf8(value.as_bytes().to_vec()).expect("заголовок должен быть валидным UTF-8")
+    }
+
+    #[test]
+    fn кириллица_уходит_в_filename_ext_и_не_попадает_в_заголовок_сырьём() {
+        let header = header_value("Договор №12 от 01.01.2026 (копия).pdf");
+
+        // Имя целиком percent-encoded в filename* — браузер восстановит его точно.
+        assert!(
+            header.contains("filename*=UTF-8''%D0%94%D0%BE%D0%B3%D0%BE%D0%B2%D0%BE%D1%80"),
+            "нет filename* с UTF-8: {header}"
+        );
+        // Ни одного не-ASCII байта: иначе браузер прочтёт заголовок как Latin-1.
+        assert!(
+            header.is_ascii(),
+            "в заголовке остались не-ASCII байты: {header}"
+        );
+        // ASCII-фолбэк сохраняет расширение и не ломает кавычки.
+        assert!(header.contains(r#"filename="#), "нет фолбэка: {header}");
+        assert!(header.contains(".pdf"), "потеряно расширение: {header}");
+    }
+
+    #[test]
+    fn ascii_имя_остаётся_читаемым() {
+        let header = header_value("contract 2026.pdf");
+        assert!(
+            header.contains(r#"filename="contract 2026.pdf""#),
+            "ASCII-имя искажено: {header}"
+        );
+    }
+
+    #[test]
+    fn кавычки_и_слеши_не_ломают_заголовок() {
+        let header = header_value(r#"он сказал "да"\нет.pdf"#);
+        assert!(header.is_ascii(), "не-ASCII в заголовке: {header}");
+        // Кавычки и обратные слеши вырезаны из фолбэка, значит quoted-string цел:
+        // ровно две кавычки — открывающая и закрывающая у filename=.
+        assert_eq!(
+            header.matches('"').count(),
+            2,
+            "нарушены границы quoted-string: {header}"
+        );
+    }
+
+    #[test]
+    fn имя_целиком_из_не_ascii_получает_фолбэк() {
+        let header = header_value("документ");
+        assert!(header.is_ascii(), "не-ASCII в заголовке: {header}");
+        assert!(header.contains("filename*=UTF-8''"), "нет filename*: {header}");
     }
 }

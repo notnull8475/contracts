@@ -259,7 +259,6 @@ const VTdialog = ref(false)
 const validityTypesFormRef = ref(null)
 const statusesDialog = ref(false)
 const selectedContract = ref(null)
-const unknownOrganizationId = ref(null)
 const filesDialog = ref(false)
 const filesDialogLoading = ref(false)
 const selectedContractFiles = ref([])
@@ -502,12 +501,8 @@ async function saveContract(payload) {
   const pendingFiles = Array.isArray(payload?.pendingFiles) ? payload.pendingFiles : []
   const pendingUpdFiles = Array.isArray(payload?.pendingUpdFiles) ? payload.pendingUpdFiles : []
 
-  contract.number = contract.number?.trim()
-    ? contract.number.trim()
-    : `б/н ${new Date().toISOString().slice(0, 10)}`
-  contract.organization_id =
-    contract.organization_id || (await ensureOrganizationIdForIncompleteContract())
-
+  // Номер и организацию проверяет форма: раньше пустые значения молча
+  // подменялись на «б/н <дата>» и организацию-заглушку «Не указано».
   try {
     if (contract.id) {
       await contractStore.updateContract(contract)
@@ -537,32 +532,6 @@ async function saveContract(payload) {
     console.error('Ошибка сохранения', e)
     toast.push('Ошибка сохранения договора', 'error')
   }
-}
-
-async function ensureOrganizationIdForIncompleteContract() {
-  if (unknownOrganizationId.value) return unknownOrganizationId.value
-  const existing = organizations.value.find((org) => org.short_name_with_opf === 'Не указано')
-  if (existing?.id) {
-    unknownOrganizationId.value = existing.id
-    return existing.id
-  }
-
-  const generatedInn = Number(`9${Date.now().toString().slice(-9)}`)
-  const created = await organizationStore.addOrganization({
-    short_name_with_opf: 'Не указано',
-    inn: generatedInn,
-    fact_address: '',
-    legal_address: '',
-    management_post: '',
-    management_name: '',
-    ogrn: '',
-    full_name_with_opf: 'Организация не указана',
-    opf_full: '',
-    opf_short: '',
-  })
-  organizations.value.push(created)
-  unknownOrganizationId.value = created.id
-  return created.id
 }
 
 async function uploadPendingFiles(contractId, files) {

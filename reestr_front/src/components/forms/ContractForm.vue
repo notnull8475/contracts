@@ -1,9 +1,10 @@
 <template>
   <v-dialog
     :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
+    @update:model-value="onDialogToggle"
     max-width="1100"
     scrollable
+    persistent
   >
     <v-card rounded="lg">
       <v-card-title>{{ form.id ? 'Редактировать договор' : 'Добавить договор' }}</v-card-title>
@@ -13,9 +14,15 @@
           <v-col cols="12" md="4">
             <v-text-field
               v-model="form.number"
-              label="Номер договора"
+              label="Номер договора *"
               variant="outlined"
               density="comfortable"
+              :error="!!errors.number"
+              :error-messages="errors.number"
+              :hint="duplicateNumberHint"
+              :persistent-hint="!!duplicateNumberHint"
+              @blur="checkDuplicateNumber"
+              @keydown.enter="save"
             />
           </v-col>
 
@@ -26,6 +33,7 @@
               type="date"
               variant="outlined"
               density="comfortable"
+              @keydown.enter="save"
             />
           </v-col>
 
@@ -36,6 +44,7 @@
               type="date"
               variant="outlined"
               density="comfortable"
+              @keydown.enter="save"
             />
           </v-col>
 
@@ -47,6 +56,9 @@
               min="0"
               variant="outlined"
               density="comfortable"
+              hint="Считается по датам; можно задать вручную — дата окончания пересчитается"
+              persistent-hint
+              @keydown.enter="save"
             />
           </v-col>
 
@@ -54,15 +66,16 @@
             <v-autocomplete
               v-model="form.organization_id"
               :items="orgAutocompleteItems"
-              label="Организация"
+              label="Организация *"
               item-title="display"
               item-value="id"
               v-model:search="searchOrganization"
-              placeholder="Введите название организации"
+              placeholder="Введите название или ИНН"
               clearable
-              hide-no-data
               variant="outlined"
               density="comfortable"
+              :error="!!errors.organization_id"
+              :error-messages="errors.organization_id"
               :menu-props="{ maxHeight: '220px' }"
             >
               <template #selection="{ item }">
@@ -96,6 +109,8 @@
               item-value="id"
               variant="outlined"
               density="comfortable"
+              clearable
+              placeholder="Не задан"
             />
           </v-col>
 
@@ -108,6 +123,8 @@
               item-value="id"
               variant="outlined"
               density="comfortable"
+              clearable
+              placeholder="Не задано"
             />
           </v-col>
 
@@ -117,15 +134,18 @@
               label="Адрес"
               variant="outlined"
               density="comfortable"
+              @keydown.enter="save"
             />
           </v-col>
 
           <v-col cols="12" md="6">
             <v-text-field
               v-model="form.additional_agreement"
-              label="Дополнительное соглашение"
+              label="Доп. соглашение (текстом)"
+              hint="Свободная заметка. Полноценные соглашения — в разделе ниже"
               variant="outlined"
               density="comfortable"
+              @keydown.enter="save"
             />
           </v-col>
 
@@ -179,10 +199,11 @@
               density="comfortable"
               :hint="isCustomPrice ? 'Спец. цена' : undefined"
               persistent-hint
+              @keydown.enter="save"
             />
           </v-col>
 
-          <v-col cols="12" md="6">
+          <v-col cols="12" md="4">
             <v-select
               v-model="form.contract_status_id"
               :items="statusesOpt"
@@ -212,6 +233,11 @@
 
         <v-divider class="my-3" />
 
+        <v-alert v-if="!form.id" type="info" variant="tonal" density="compact" class="mb-3">
+          Файлы можно выбрать сейчас — они загрузятся сразу после сохранения договора. Доп.
+          соглашения и история появятся после сохранения.
+        </v-alert>
+
         <h4 class="text-subtitle-1 mb-2">Файлы</h4>
 
         <v-row dense>
@@ -240,10 +266,6 @@
             </v-btn>
           </v-col>
         </v-row>
-
-        <v-alert v-if="!form.id" type="info" variant="tonal" class="mb-2">
-          Для нового договора файлы добавляются в очередь и загрузятся после сохранения договора.
-        </v-alert>
 
         <v-list v-if="form.id" density="compact">
           <v-list-item v-for="file in files" :key="file.id">
@@ -323,10 +345,6 @@
             </v-btn>
           </v-col>
         </v-row>
-
-        <v-alert v-if="!form.id" type="info" variant="tonal" class="mb-2">
-          УПД добавляются в очередь и загрузятся после сохранения договора.
-        </v-alert>
 
         <v-list v-if="form.id" density="compact">
           <v-list-item v-for="file in updFiles" :key="file.id">
@@ -416,62 +434,59 @@
           </v-expansion-panel>
         </v-expansion-panels>
 
-        <h4 class="text-subtitle-1 mb-2">Дополнительные соглашения</h4>
+        <template v-if="form.id">
+          <h4 class="text-subtitle-1 mb-2">Дополнительные соглашения</h4>
 
-        <v-btn
-          v-if="form.id"
-          size="small"
-          color="primary"
-          variant="tonal"
-          prepend-icon="mdi-plus"
-          class="mb-2"
-          @click="openSupplementaryForm()"
-        >
-          Добавить соглашение
-        </v-btn>
+          <v-btn
+            size="small"
+            color="primary"
+            variant="tonal"
+            prepend-icon="mdi-plus"
+            class="mb-2"
+            @click="openSupplementaryForm()"
+          >
+            Добавить соглашение
+          </v-btn>
 
-        <v-alert v-if="!form.id" type="info" variant="tonal" class="mb-2">
-          Доп соглашения можно добавить после сохранения договора.
-        </v-alert>
-
-        <v-list v-if="form.id" density="compact">
-          <v-list-item v-for="sa in supplementaryAgreements" :key="sa.id">
-            <template #prepend><v-icon>mdi-file-document-outline</v-icon></template>
-            <v-list-item-title>
-              {{ sa.number || 'Без номера' }}
-              <span v-if="sa.date_from"> от {{ formatDate(sa.date_from) }}</span>
-            </v-list-item-title>
-            <v-list-item-subtitle>
-              {{ sa.description || '—' }}
-              <span v-if="sa.price"> · {{ formatPrice(sa.price) }}</span>
-            </v-list-item-subtitle>
-            <template #append>
-              <v-btn
-                icon="mdi-pencil"
-                size="small"
-                variant="text"
-                @click="openSupplementaryForm(sa)"
-              />
-              <v-btn
-                icon="mdi-delete"
-                size="small"
-                variant="text"
-                color="error"
-                @click="removeSupplementaryAgreement(sa.id)"
-              />
-            </template>
-          </v-list-item>
-          <v-list-item v-if="!supplementaryAgreements.length">
-            <v-list-item-title class="text-medium-emphasis">Нет доп соглашений</v-list-item-title>
-          </v-list-item>
-        </v-list>
+          <v-list density="compact">
+            <v-list-item v-for="sa in supplementaryAgreements" :key="sa.id">
+              <template #prepend><v-icon>mdi-file-document-outline</v-icon></template>
+              <v-list-item-title>
+                {{ sa.number || 'Без номера' }}
+                <span v-if="sa.date_from"> от {{ formatDate(sa.date_from) }}</span>
+              </v-list-item-title>
+              <v-list-item-subtitle>
+                {{ sa.description || '—' }}
+                <span v-if="sa.price"> · {{ formatPrice(sa.price) }}</span>
+              </v-list-item-subtitle>
+              <template #append>
+                <v-btn
+                  icon="mdi-pencil"
+                  size="small"
+                  variant="text"
+                  @click="openSupplementaryForm(sa)"
+                />
+                <v-btn
+                  icon="mdi-delete"
+                  size="small"
+                  variant="text"
+                  color="error"
+                  @click="removeSupplementaryAgreement(sa.id)"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item v-if="!supplementaryAgreements.length">
+              <v-list-item-title class="text-medium-emphasis">Нет доп соглашений</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </template>
       </v-card-text>
 
       <v-card-actions>
         <v-btn v-if="form.id" color="error" @click="deleteItem">Удалить</v-btn>
         <v-spacer />
         <v-btn color="primary" @click="save">Сохранить</v-btn>
-        <v-btn text @click="$emit('update:modelValue', false)">Отмена</v-btn>
+        <v-btn text @click="requestClose">Отмена</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -619,6 +634,10 @@ const isCustomPrice = ref(false)
 const periodChanging = ref(false)
 const historyItems = ref([])
 const historyLoading = ref(false)
+const errors = reactive({ number: '', organization_id: '' })
+const duplicateNumberHint = ref('')
+/** Снимок формы на момент открытия — чтобы отличить заполненную форму от нетронутой. */
+const pristineSnapshot = ref('')
 
 const quickOrg = reactive({
   short_name_with_opf: '',
@@ -665,6 +684,20 @@ const orgAutocompleteItems = computed(() =>
 )
 
 /** Подпись выбранной организации, если слот selection не отдал raw */
+watch(
+  () => form.organization_id,
+  (value) => {
+    if (value) errors.organization_id = ''
+  },
+)
+
+watch(
+  () => form.number,
+  (value) => {
+    if (value?.trim()) errors.number = ''
+  },
+)
+
 const organizationDisplayLabel = computed(() => {
   const id = form.organization_id
   if (id == null || id === '') return ''
@@ -785,6 +818,10 @@ watch(
     updFiles.value = []
     supplementaryAgreements.value = []
     historyItems.value = []
+    errors.number = ''
+    errors.organization_id = ''
+    duplicateNumberHint.value = ''
+    pristineSnapshot.value = JSON.stringify(form)
 
     if (newVal?.id) {
       loadFiles(newVal.id)
@@ -1090,9 +1127,67 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/**
+ * Номер и организация обязательны на уровне БД (NOT NULL). Раньше пустые значения
+ * молча подменялись на «б/н <дата>» и организацию-заглушку «Не указано» —
+ * пользователь не знал, что создал неполный договор.
+ */
+function validate() {
+  errors.number = form.number?.trim() ? '' : 'Укажите номер договора'
+  errors.organization_id = form.organization_id ? '' : 'Выберите организацию'
+  return !errors.number && !errors.organization_id
+}
+
+/**
+ * Договор с уже занятым номером — не ошибка (продления и дубли встречаются),
+ * поэтому только предупреждаем, не блокируя сохранение.
+ */
+async function checkDuplicateNumber() {
+  duplicateNumberHint.value = ''
+  const number = form.number?.trim()
+  if (!number) return
+
+  try {
+    const res = await contractStore.getPaginatedContracts({ search: number, per_page: 10 })
+    const clash = (res?.items || []).find((c) => c.number === number && c.id !== form.id)
+    if (clash) duplicateNumberHint.value = `Договор с таким номером уже есть (#${clash.id})`
+  } catch (e) {
+    // Проверка вспомогательная: недоступность поиска не должна мешать вводу.
+    console.error('Не удалось проверить номер на дубль', e)
+  }
+}
+
+function isDirty() {
+  return (
+    JSON.stringify(form) !== pristineSnapshot.value ||
+    pendingFiles.value.length > 0 ||
+    pendingUpdFiles.value.length > 0
+  )
+}
+
+function requestClose() {
+  if (isDirty() && !confirm('Закрыть форму? Несохранённые изменения будут потеряны.')) return
+  emit('update:modelValue', false)
+}
+
+/** Диалог persistent, поэтому закрытие приходит только от кнопок — но страхуемся. */
+function onDialogToggle(value) {
+  if (value) {
+    emit('update:modelValue', true)
+    return
+  }
+  requestClose()
+}
+
 function save() {
+  if (!validate()) {
+    toast.push('Заполните обязательные поля', 'error')
+    return
+  }
+
   const payload = {
     ...form,
+    number: form.number.trim(),
     date_from: toApiDateTime(form.date_from),
     date_to: toApiDateTime(form.date_to),
     contract_period: calculateContractPeriod(form.date_from, form.date_to),
