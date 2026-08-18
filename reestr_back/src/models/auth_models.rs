@@ -29,6 +29,23 @@ pub struct NewUser {
     pub username: String,
     pub password_hash: String,
     pub role: String,
+    /// Отсутствует в запросе — учётная запись создаётся активной.
+    #[serde(default)]
+    pub is_active: Option<bool>,
+}
+
+/// Обновление пользователя администратором.
+/// `password_hash` необязателен: пустое/отсутствующее значение оставляет пароль прежним.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UpdateUserRequest {
+    pub id: i32,
+    pub login: String,
+    pub username: String,
+    pub role: String,
+    #[serde(default)]
+    pub password_hash: Option<String>,
+    #[serde(default)]
+    pub is_active: Option<bool>,
 }
 #[derive(Insertable, Serialize, Deserialize)]
 #[diesel(table_name = users)]

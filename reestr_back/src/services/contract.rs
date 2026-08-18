@@ -4,7 +4,7 @@ use crate::schema::contract;
 use crate::utils::db::establish_connection;
 use diesel::prelude::*;
 use diesel::sql_query;
-use diesel::sql_types::{BigInt, Integer, Nullable, Text, Timestamp, Timestamptz, Numeric};
+use diesel::sql_types::{BigInt, Integer, Nullable, Numeric, Text, Timestamptz};
 use diesel::{QueryDsl, RunQueryDsl};
 use std::collections::HashMap;
 
@@ -39,20 +39,36 @@ pub async fn update_contract(contract: Contract) -> Result<Contract, String> {
         .map_err(|e| format!("Error to update contract: {}", e))?;
 
     if old.contract_status_id != contract.contract_status_id {
-        let old_status = old.contract_status_id.map(|s| s.to_string()).unwrap_or_else(|| "не задан".to_string());
-        let new_status = contract.contract_status_id.map(|s| s.to_string()).unwrap_or_else(|| "не задан".to_string());
+        // В истории пишем названия статусов, а не идентификаторы — их читает человек.
+        let old_status = status_label(connection, old.contract_status_id);
+        let new_status = status_label(connection, contract.contract_status_id);
         let _ = diesel::insert_into(crate::schema::contract_history::table)
             .values(&ContractHistoryDTO {
                 contract_id: contract.id,
                 action: "status_changed".to_string(),
-                old_value: Some(old_status),
-                new_value: Some(new_status),
-                description: None,
+                old_value: Some(old_status.clone()),
+                new_value: Some(new_status.clone()),
+                description: Some(format!("{} → {}", old_status, new_status)),
             })
             .execute(connection);
     }
 
     Ok(result)
+}
+
+/// Читаемое название статуса для записи в историю ("не задан", если статуса нет).
+fn status_label(conn: &mut diesel::PgConnection, status_id: Option<i32>) -> String {
+    use crate::schema::dict_contract_status;
+
+    let Some(sid) = status_id else {
+        return "не задан".to_string();
+    };
+
+    dict_contract_status::table
+        .filter(dict_contract_status::id.eq(sid))
+        .select(dict_contract_status::name)
+        .first::<String>(conn)
+        .unwrap_or_else(|_| format!("#{}", sid))
 }
 
 pub async fn list_contract() -> Result<Vec<Contract>, String> {
@@ -88,7 +104,7 @@ struct ContractRow {
     id: i32,
     #[diesel(sql_type = Text)]
     number: String,
-    #[diesel(sql_type = Nullable<Timestamp>)]
+    #[diesel(sql_type = Nullable<Timestamptz>)]
     date_from: Option<NaiveDateTime>,
     #[diesel(sql_type = Nullable<Timestamptz>)]
     date_to: Option<NaiveDateTime>,
@@ -119,30 +135,38 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
     let per_page = if show_all { 0i64 } else { per_page_raw.clamp(10, 10000) };
     let offset = (page - 1) * per_page;
 
-    // Строим WHERE clause — прямая интерполяция (без $N placeholders)
+    // Строим WHERE clause. Значение поиска передаётся bind-параметром ($1),
+    // числовые фильтры валидируются и подставляются как целые числа.
     let mut conditions: Vec<String> = Vec::new();
 
-    if let Some(ref search) = params.search {
-        if !search.is_empty() {
-            let safe_search = search.replace('\'', "''");
-            let like = format!("%{}%", safe_search);
+    let search_pattern: Option<String> = params
+        .search
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            // Экранируем спецсимволы LIKE, чтобы они искались буквально
+            // (в PostgreSQL escape-символ LIKE по умолчанию — обратный слеш).
+            let escaped = s
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_");
+            format!("%{}%", escaped)
+        });
 
-            let mut or_conditions: Vec<String> = Vec::new();
-            or_conditions.push(format!("number ILIKE '{}'", like));
-            or_conditions.push(format!("COALESCE(address, '') ILIKE '{}'", like));
-            or_conditions.push(format!("COALESCE(comment, '') ILIKE '{}'", like));
-            or_conditions.push(format!("COALESCE(additional_agreement, '') ILIKE '{}'", like));
-            or_conditions.push(format!(
-                "organization_id IN (SELECT id FROM organization WHERE COALESCE(short_name_with_opf, '') ILIKE '{}')",
-                like
-            ));
-            or_conditions.push(format!(
-                "responsible_person_id IN (SELECT id FROM responsible_person WHERE COALESCE(lastname, '') ILIKE '{}')",
-                like
-            ));
-
-            conditions.push(format!("({})", or_conditions.join(" OR ")));
-        }
+    if search_pattern.is_some() {
+        conditions.push(
+            "(number ILIKE $1 \
+              OR COALESCE(address, '') ILIKE $1 \
+              OR COALESCE(comment, '') ILIKE $1 \
+              OR COALESCE(additional_agreement, '') ILIKE $1 \
+              OR organization_id IN (SELECT id FROM organization \
+                    WHERE COALESCE(short_name_with_opf, '') ILIKE $1 \
+                       OR COALESCE(full_name_with_opf, '') ILIKE $1) \
+              OR responsible_person_id IN (SELECT id FROM responsible_person \
+                    WHERE COALESCE(lastname, '') ILIKE $1))"
+                .to_string(),
+        );
     }
 
     if let Some(ref year) = params.year {
@@ -185,10 +209,15 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
 
     // Считаем total
     let count_sql = format!("SELECT COUNT(*) as total FROM contract {}", where_clause);
-    let total: i64 = sql_query(&count_sql)
-        .get_result::<CountResult>(conn)
-        .map(|r| r.total)
-        .unwrap_or(0);
+    let count_query = sql_query(&count_sql);
+    let total: i64 = match search_pattern {
+        Some(ref pattern) => count_query
+            .bind::<Text, _>(pattern.clone())
+            .get_result::<CountResult>(conn),
+        None => count_query.get_result::<CountResult>(conn),
+    }
+    .map(|r| r.total)
+    .map_err(|e| format!("Error counting contracts: {}", e))?;
 
     // Получаем данные
     let limit_clause = if show_all {
@@ -202,14 +231,19 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
                 organization_id, type_of_validity, responsible_person_id, \
                 price, contract_status_id \
          FROM contract {} \
-         ORDER BY {} {} NULLS LAST \
+         ORDER BY {} {} NULLS LAST, id {} \
          {}",
-        where_clause, sort_col, sort_order, limit_clause
+        where_clause, sort_col, sort_order, sort_order, limit_clause
     );
 
-    let rows: Vec<ContractRow> = sql_query(&data_sql)
-        .get_results(conn)
-        .map_err(|e| format!("Error listing contracts: {}", e))?;
+    let data_query = sql_query(&data_sql);
+    let rows: Vec<ContractRow> = match search_pattern {
+        Some(ref pattern) => data_query
+            .bind::<Text, _>(pattern.clone())
+            .get_results(conn),
+        None => data_query.get_results(conn),
+    }
+    .map_err(|e| format!("Error listing contracts: {}", e))?;
 
     let items: Vec<ContractListDTO> = rows
         .into_iter()

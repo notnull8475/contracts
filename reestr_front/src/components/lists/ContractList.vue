@@ -1,19 +1,16 @@
 <template>
-  <v-data-table
+  <component
+    :is="serverMode ? VDataTableServer : VDataTable"
+    v-bind="tableProps"
     class="contract-table"
     :headers="headers"
     :items="contracts"
-    :items-per-page="serverMode ? serverPerPage : 15"
-    :items-per-page-options="serverMode ? itemsPerPageOptions : [15, 30, 50]"
-    :server-items="serverMode ? serverItemsLength : undefined"
-    :page="serverMode ? serverPage : undefined"
-    :sort-by="serverMode ? serverSortBy : []"
     density="comfortable"
     fixed-header
     @update:options="$emit('update:options', $event)"
   >
     <template #item.row_number="{ index }">
-      {{ index + 1 }}
+      {{ rowOffset + index + 1 }}
     </template>
 
     <template #item.date_from="{ item }">
@@ -96,11 +93,12 @@
     <template #item.actions="{ item }">
       <v-btn icon="mdi-pencil" variant="text" size="small" @click="$emit('edit', item)" />
     </template>
-  </v-data-table>
+  </component>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { VDataTable, VDataTableServer } from 'vuetify/components'
 
 const props = defineProps([
   'contracts',
@@ -138,6 +136,39 @@ const headers = [
   { title: 'Статус', key: 'contract_status_id', sortable: true },
   { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
 ]
+
+/**
+ * В серверном режиме нужен именно v-data-table-server: обычная v-data-table
+ * пагинирует и сортирует уже полученную страницу на клиенте, из-за чего футер
+ * показывает размер страницы вместо общего количества, а сортировка работает
+ * только внутри страницы.
+ */
+const tableProps = computed(() => {
+  if (!props.serverMode) {
+    return {
+      itemsPerPage: 15,
+      itemsPerPageOptions: [15, 30, 50],
+    }
+  }
+
+  return {
+    itemsLength: props.serverItemsLength ?? 0,
+    itemsPerPage: props.serverPerPage ?? 50,
+    itemsPerPageOptions: props.itemsPerPageOptions ?? [50, 100, 200],
+    page: props.serverPage ?? 1,
+    sortBy: props.serverSortBy ?? [],
+  }
+})
+
+/** Сквозная нумерация строк: на второй странице счёт продолжается, а не начинается заново. */
+const rowOffset = computed(() => {
+  if (!props.serverMode) return 0
+  const page = props.serverPage ?? 1
+  const perPage = props.serverPerPage ?? 0
+  // perPage <= 0 — режим «все записи», страница одна.
+  if (perPage <= 0) return 0
+  return (page - 1) * perPage
+})
 
 const statusMap = computed(() => {
   const map = {}

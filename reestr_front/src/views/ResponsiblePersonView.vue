@@ -69,6 +69,7 @@ import ResponsiblePersonForm from '@/components/forms/ResponsiblePersonForm.vue'
 import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import { UserUtil } from '@/store/users.js'
 import { useAuthStore } from '@/store/auth.js'
+import { useNotify } from '@/composables/useNotify.js'
 
 const search = ref('')
 const dialog = ref(false)
@@ -77,6 +78,7 @@ const responsiblePersons = ref([])
 const users = ref([])
 const loading = ref(false)
 
+const { notifySuccess, notifyError } = useNotify()
 const responsiblePersonStore = ResponsiblePersonUtil()
 const userStore = UserUtil()
 const authStore = useAuthStore()
@@ -152,23 +154,35 @@ async function saveResponsiblePerson(person) {
       await responsiblePersonStore.updateResponsiblePerson(person)
       const idx = responsiblePersons.value.findIndex((p) => p.id === person.id)
       if (idx !== -1) responsiblePersons.value[idx] = person
+      notifySuccess('Ответственное лицо изменено')
       return
     }
 
+    // Ответ сервера содержит настоящий id; синтетический Date.now() ломал бы
+    // последующее редактирование и удаление записи.
     const created = await responsiblePersonStore.addResponsiblePerson(person)
-    responsiblePersons.value.push(created ?? { ...person, id: Date.now() })
+    if (!created?.id) {
+      notifyError('Сервер не вернул созданную запись — обновите страницу')
+      return
+    }
+    responsiblePersons.value.push(created)
+    notifySuccess('Ответственное лицо добавлено')
   } catch (e) {
     console.error('Ошибка сохранения', e)
+    notifyError(e.message || 'Ошибка сохранения ответственного лица')
   }
 }
 
 async function deleteResponsiblePerson(id) {
+  if (!confirm('Удалить ответственное лицо?')) return
+
   try {
     await responsiblePersonStore.delResponsiblePerson(id)
     responsiblePersons.value = responsiblePersons.value.filter((p) => p.id !== id)
+    notifySuccess('Ответственное лицо удалено')
   } catch (e) {
     console.error('Ошибка удаления', e)
-    alert(e.message)
+    notifyError(e.message || 'Не удалось удалить ответственное лицо')
   }
 }
 </script>

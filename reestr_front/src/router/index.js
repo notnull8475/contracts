@@ -76,12 +76,12 @@ router.beforeEach((to, from, next) => {
     return next('/login')
   }
 
-  if (to.meta.requiresAdmin && authStore.user.role !== 'admin') {
+  if (to.meta.requiresAdmin && authStore.user?.role !== 'admin') {
     // Пользователи без прав администратора перенаправляются на about
     return next('/about')
   }
-  if (to.meta.requiresManager && authStore.user.role !== 'manager') {
-    // Пользователи без роли manager перенаправляются на about
+  // Роли бэкенда: admin | moderator | user (см. reestr_back/src/auth/roles.rs).
+  if (to.meta.requiresModerator && !['admin', 'moderator'].includes(authStore.user?.role)) {
     return next('/about')
   }
 

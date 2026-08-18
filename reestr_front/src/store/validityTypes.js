@@ -10,15 +10,6 @@ export const ValidityTypesUtil = defineStore('validityTypes', {
       const requtil = useRequtil()
       return requtil.makePostRequest(`${vtRequest}/add`, newOrg, 'Ошибка добавления типа договора')
     },
-    async updateValidityTypes(OrgData) {
-      const requtil = useRequtil()
-      return requtil.makePostRequest(
-        `${vtRequest}/update`,
-        OrgData,
-        'Ошибка обновления типа договора',
-      )
-    },
-
     async delValidityTypes(OrgID) {
       const requtil = useRequtil()
       return requtil.makeDeleteRequest(`${vtRequest}/del/`, OrgID, 'Ошибка удаления типа договора')
@@ -31,7 +22,11 @@ export const ValidityTypesUtil = defineStore('validityTypes', {
 
     async getValidityTypes() {
       const requtil = useRequtil()
-      return requtil.makeGetRequest(`${vtRequest}/list`, '', 'Ошибка получения списка организаций')
+      return requtil.makeGetRequest(
+        `${vtRequest}/list`,
+        '',
+        'Ошибка получения списка типов договоров',
+      )
     },
   },
 })

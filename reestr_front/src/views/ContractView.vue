@@ -130,6 +130,7 @@
   />
 
   <validity-types-form
+    ref="validityTypesFormRef"
     v-model="VTdialog"
     :validityTypesOpt="validityTypesOpt"
     @save="saveType"
@@ -255,6 +256,7 @@ import { useToastStore } from '@/store/toast.js'
 const search = ref('')
 const dialog = ref(false)
 const VTdialog = ref(false)
+const validityTypesFormRef = ref(null)
 const statusesDialog = ref(false)
 const selectedContract = ref(null)
 const unknownOrganizationId = ref(null)
@@ -273,11 +275,12 @@ const serverSortByComputed = computed(() => {
   if (!sortBy.value.length) return []
   return [{ key: sortBy.value[0], order: sortOrder.value || 'asc' }]
 })
+// -1 — соглашение Vuetify для «показать все»; на бэкенд это уходит как per_page=0.
 const itemsPerPageOptions = [
   { value: 50, title: '50' },
   { value: 100, title: '100' },
   { value: 200, title: '200' },
-  { value: 0, title: 'Все' },
+  { value: -1, title: 'Все' },
 ]
 
 // Stats
@@ -326,7 +329,7 @@ const statusFilterOptions = computed(() => [
   ...contractStatuses.value.map((s) => ({ title: s.name, value: s.id, color: s.color })),
 ])
 
-// Генерируем годы: текущий-3 … текущий+1
+// Генерируем годы: текущий-5 … текущий+1
 const yearFilterOptions = computed(() => {
   const now = new Date().getFullYear()
   const years = []
@@ -353,10 +356,11 @@ let searchTimeout = null
 
 async function fetchContracts() {
   loading.value = true
+  lastRequestSignature = requestSignature()
   try {
     const params = {
       page: currentPage.value,
-      per_page: perPage.value,
+      per_page: perPage.value < 0 ? 0 : perPage.value,
     }
     if (search.value) params.search = search.value
     if (yearFilter.value !== 'all') params.year = yearFilter.value
@@ -416,6 +420,21 @@ function onFilterChange() {
   fetchContracts()
 }
 
+/** Подпись текущего запроса — чтобы не дёргать сервер, когда таблица переэмитила те же опции. */
+function requestSignature() {
+  return JSON.stringify([
+    currentPage.value,
+    perPage.value,
+    sortBy.value,
+    sortOrder.value,
+    search.value,
+    yearFilter.value,
+    statusFilter.value,
+  ])
+}
+
+let lastRequestSignature = null
+
 function onTableOptionsChange(options) {
   if (options.page) currentPage.value = options.page
   if (options.itemsPerPage !== undefined && options.itemsPerPage !== null) {
@@ -428,6 +447,9 @@ function onTableOptionsChange(options) {
     sortBy.value = []
     sortOrder.value = 'asc'
   }
+
+  // v-data-table-server эмитит опции и при первом рендере — повторный запрос не нужен.
+  if (requestSignature() === lastRequestSignature) return
   fetchContracts()
 }
 
@@ -451,13 +473,27 @@ watch(
 )
 
 // --- Form actions ---
-function openForm(contract = null) {
-  selectedContract.value = contract ? { ...contract } : null
+async function openForm(contract = null) {
+  if (!contract?.id) {
+    selectedContract.value = null
+    dialog.value = true
+    return
+  }
+
+  // В списке приходит облегчённый DTO (без address, comment, additional_agreement,
+  // file_link). Открывать форму на нём нельзя: сохранение затрёт эти поля.
+  try {
+    const full = await contractStore.getContract(contract.id)
+    selectedContract.value = { ...contract, ...full }
+  } catch (e) {
+    console.error('Не удалось загрузить договор', e)
+    toast.push('Не удалось загрузить договор', 'error')
+    return
+  }
   dialog.value = true
 }
 
-function openTypeForm(type = null) {
-  selectedContract.value = type ? { ...type } : null
+function openTypeForm() {
   VTdialog.value = true
 }
 
@@ -553,8 +589,11 @@ async function saveType(type) {
   try {
     await validityTypesStore.addValidityTypes(type)
     validityTypes.value = await validityTypesStore.getValidityTypes()
+    validityTypesFormRef.value?.reset()
+    toast.push('Тип договора добавлен', 'success')
   } catch (e) {
     console.error('Ошибка сохранения', e)
+    toast.push(e.message || 'Ошибка добавления типа договора', 'error')
   }
 }
 
@@ -562,8 +601,10 @@ async function deleteType(id) {
   try {
     await validityTypesStore.delValidityTypes(id)
     validityTypes.value = validityTypes.value.filter((t) => t.id !== id)
+    toast.push('Тип договора удалён', 'success')
   } catch (e) {
     console.error('Ошибка удаления типа', e)
+    toast.push(e.message || 'Ошибка удаления типа договора', 'error')
   }
 }
 
@@ -591,10 +632,11 @@ async function deleteStatus(id) {
 async function deleteContract(id) {
   try {
     await contractStore.delContract(id)
+    toast.push('Договор удалён', 'success')
     await fetchContracts()
   } catch (e) {
     console.error('Ошибка удаления', e)
-    alert(e.message)
+    toast.push(e.message || 'Не удалось удалить договор', 'error')
   }
 }
 
@@ -625,7 +667,7 @@ async function handleOpenSupplementaryForm({ contractId, agreement }) {
   selectedSaFiles.value = []
   if (agreement?.id) {
     try {
-      const files = (await contractStore.getSaFiles) ? contractStore.getSaFiles(agreement.id) : []
+      const files = await contractStore.getSaFiles(agreement.id)
       selectedSaFiles.value = Array.isArray(files) ? files : []
     } catch (e) {
       console.error('Failed to load SA files', e)
@@ -684,15 +726,17 @@ function handleOrganizationAdded(organization) {
 async function openContractFiles(contract) {
   filesDialogLoading.value = true
   selectedContractFiles.value = []
+  filesDialog.value = true
   try {
     const files = await contractStore.getContractFiles(contract.id, 'contract')
     selectedContractFiles.value = Array.isArray(files) ? files : []
     if (selectedContractFiles.value.length === 1) {
+      filesDialog.value = false
       downloadFile(selectedContractFiles.value[0].id)
       return
     }
-    filesDialog.value = true
   } catch (error) {
+    filesDialog.value = false
     toast.push('Не удалось получить список файлов', 'error')
   } finally {
     filesDialogLoading.value = false
@@ -702,15 +746,17 @@ async function openContractFiles(contract) {
 async function openContractUpdFiles(contract) {
   updDialogLoading.value = true
   selectedContractUpdFiles.value = []
+  updDialog.value = true
   try {
     const files = await contractStore.getContractFiles(contract.id, 'upd')
     selectedContractUpdFiles.value = Array.isArray(files) ? files : []
     if (selectedContractUpdFiles.value.length === 1) {
+      updDialog.value = false
       downloadFile(selectedContractUpdFiles.value[0].id)
       return
     }
-    updDialog.value = true
   } catch (error) {
+    updDialog.value = false
     toast.push('Не удалось получить список УПД', 'error')
   } finally {
     updDialogLoading.value = false

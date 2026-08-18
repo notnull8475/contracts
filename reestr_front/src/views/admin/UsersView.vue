@@ -42,7 +42,7 @@
     </v-card-text>
   </v-card>
 
-  <user-form v-model="dialog" :user="selectedUser" @save="saveUser" />
+  <user-form ref="userFormRef" v-model="dialog" :user="selectedUser" @save="saveUser" />
 </template>
 
 <script setup>
@@ -51,14 +51,17 @@ import { useRoute, useRouter } from 'vue-router'
 import UserList from '@/components/admin/UserList.vue'
 import UserForm from '@/components/admin/UserForm.vue'
 import { UserUtil } from '@/store/users.js'
+import { useToastStore } from '@/store/toast.js'
 
 const search = ref('')
 const dialog = ref(false)
+const userFormRef = ref(null)
 const selectedUser = ref(null)
 const users = ref([])
 const loading = ref(false)
 
 const userStore = UserUtil()
+const toast = useToastStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -96,6 +99,7 @@ async function fetchPage() {
     users.value = await userStore.getAllUsers()
   } catch (e) {
     console.error('Не удалось получить список пользователей', e)
+    toast.push(e.message || 'Не удалось получить список пользователей', 'error')
   } finally {
     loading.value = false
   }
@@ -110,21 +114,32 @@ async function saveUser(user) {
   try {
     if (user.id) {
       await userStore.updateUser(user)
+      toast.push('Пользователь обновлён', 'success')
     } else {
       await userStore.addUser(user)
+      toast.push('Пользователь создан', 'success')
     }
+    dialog.value = false
     await fetchPage()
   } catch (e) {
     console.error('Ошибка сохранения', e)
+    const message = e.message || 'Ошибка сохранения пользователя'
+    // Форма остаётся открытой с введёнными данными, ошибка — рядом с полями.
+    userFormRef.value?.showError(message)
+    toast.push(message, 'error')
   }
 }
 
 async function deleteUser(id) {
+  if (!confirm('Удалить пользователя? Действие необратимо.')) return
+
   try {
     await userStore.deleteUser(id)
     users.value = users.value.filter((s) => s.id !== id)
+    toast.push('Пользователь удалён', 'success')
   } catch (e) {
     console.error('Ошибка удаления', e)
+    toast.push(e.message || 'Ошибка удаления пользователя', 'error')
   }
 }
 </script>

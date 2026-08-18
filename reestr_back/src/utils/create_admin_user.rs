@@ -22,12 +22,9 @@ pub fn create_admin_user_if_need() {
             role: Role::Admin.as_str().to_string(),
             is_active: Option::from(true),
         };
-        println!("Create admin user");
-        diesel::insert_into(users::table)
-            .values(&user)
-            .execute(conn)
-            .expect("Error saving new user");
-        error!("Error saving new user");
+        match diesel::insert_into(users::table).values(&user).execute(conn) {
+            Ok(_) => info!("Создан пользователь admin по умолчанию — смените пароль"),
+            Err(e) => error!("Не удалось создать пользователя admin: {}", e),
+        }
     }
-    info!("Create admin user registered successfully");
 }

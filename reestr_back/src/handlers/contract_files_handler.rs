@@ -18,6 +18,14 @@ fn default_file_type() -> String {
     "contract".to_string()
 }
 
+/// Предел размера загружаемого файла. Совпадает с `client_max_body_size` в nginx,
+/// но проверяется и здесь: бэкенд слушает 0.0.0.0:8080 и доступен напрямую.
+const MAX_UPLOAD_BYTES: usize = 50 * 1024 * 1024;
+
+/// Разрешённые значения `file_type` — иначе в БД попадёт мусор,
+/// который не найдут ни счётчики, ни списки файлов.
+const ALLOWED_FILE_TYPES: [&str; 3] = ["contract", "upd", "supplementary"];
+
 pub async fn upload_file(
     req: HttpRequest,
     mut payload: Multipart,
@@ -31,6 +39,12 @@ pub async fn upload_file(
     let contract_id = contract_id.into_inner();
     let ftype = query.file_type.clone();
     let sa_id = query.supplementary_agreement_id;
+
+    if !ALLOWED_FILE_TYPES.contains(&ftype.as_str()) {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "error": format!("Недопустимый тип файла: {}", ftype)
+        })));
+    }
 
     while let Some(item) = payload.try_next().await.map_err(|e| {
         actix_web::error::ErrorBadRequest(e.to_string())
@@ -51,6 +65,11 @@ pub async fn upload_file(
         while let Some(chunk) = field.try_next().await.map_err(|e| {
             actix_web::error::ErrorBadRequest(e.to_string())
         })? {
+            if file_data.len() + chunk.len() > MAX_UPLOAD_BYTES {
+                return Ok(HttpResponse::PayloadTooLarge().json(serde_json::json!({
+                    "error": format!("Файл больше {} МБ", MAX_UPLOAD_BYTES / (1024 * 1024))
+                })));
+            }
             file_data.write_all(&chunk).map_err(|e| {
                 actix_web::error::ErrorBadRequest(e.to_string())
             })?;

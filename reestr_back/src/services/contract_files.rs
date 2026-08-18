@@ -51,10 +51,18 @@ pub async fn save_file(
         supplementary_agreement_id: sa_id,
     };
 
-    let result = diesel::insert_into(contract_files)
+    let result = match diesel::insert_into(contract_files)
         .values(&dto)
         .get_result::<ContractFile>(conn)
-        .map_err(|e| format!("Failed to save file record: {}", e))?;
+    {
+        Ok(row) => row,
+        Err(e) => {
+            // Запись в БД не удалась (например, договора не существует) —
+            // убираем уже записанный файл, чтобы не копить «сироты» на диске.
+            let _ = fs::remove_file(&file_path);
+            return Err(format!("Failed to save file record: {}", e));
+        }
+    };
 
     Ok(result.into())
 }

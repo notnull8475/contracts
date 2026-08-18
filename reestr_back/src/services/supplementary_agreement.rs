@@ -77,17 +77,19 @@ pub async fn update(dto: SupplementaryAgreementUpdateDTO) -> Result<Supplementar
         .map(|d| d.format("%d.%m.%Y").to_string())
         .unwrap_or_else(|| "без даты".to_string());
 
+    // AsChangeset пропускает поля со значением None, поэтому отсутствующее в запросе
+    // поле не меняет данные — и не должно попадать в историю как изменение.
     let mut changes: Vec<String> = Vec::new();
-    if dto.number != old.number {
+    if dto.number.is_some() && dto.number != old.number {
         changes.push(format!("номер: {} → {}", old.number.as_deref().unwrap_or("-"), sa_num));
     }
-    if dto.date_from != old.date_from {
+    if dto.date_from.is_some() && dto.date_from != old.date_from {
         changes.push("дата изменена".to_string());
     }
-    if dto.description != old.description {
+    if dto.description.is_some() && dto.description != old.description {
         changes.push("описание изменено".to_string());
     }
-    if dto.price != old.price {
+    if dto.price.is_some() && dto.price != old.price {
         let old_price = old.price.map(|p| p.to_string()).unwrap_or_else(|| "нет".to_string());
         let new_price_val = dto.price.clone().map(|p| p.to_string()).unwrap_or_else(|| "нет".to_string());
         changes.push(format!("цена: {} → {}", old_price, new_price_val));

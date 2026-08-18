@@ -13,17 +13,24 @@ const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      const errorText =
-        error.response?.data?.error ||
-        (typeof error.response?.data === 'string' ? error.response.data : '')
+    const status = error.response?.status
+    const errorText = String(
+      error.response?.data?.error ||
+        (typeof error.response?.data === 'string' ? error.response.data : ''),
+    ).toLowerCase()
 
-      if (String(errorText).toLowerCase().includes('token')) {
-        const authStore = useAuthStore()
-        authStore.logout() // Разлогиниваем пользователя
-        window.location.href = '/login' // Перенаправляем на страницу входа
-      }
+    // Логин отвечает 401 «Invalid credentials» — там разлогинивать нечего.
+    const tokenRejected = status === 401 && errorText.includes('token')
+    // Бэкенд проверяет is_active на каждом запросе: отключённая учётная запись
+    // получает 403 уже с валидным токеном.
+    const accountDeactivated = status === 403 && errorText.includes('deactivated')
+
+    if (tokenRejected || accountDeactivated) {
+      const authStore = useAuthStore()
+      authStore.logout()
+      window.location.href = '/login'
     }
+
     return Promise.reject(error)
   },
 )

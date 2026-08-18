@@ -578,23 +578,28 @@ const organizationStore = OrganizationUtil()
 const saStore = SupplementaryAgreementUtil()
 const toast = useToastStore()
 
-const form = reactive({
-  id: null,
-  number: '',
-  date_from: null,
-  date_to: null,
-  contract_period: null,
-  organization_id: null,
-  type_of_validity: null,
-  responsible_person_id: null,
-  address: '',
-  additional_agreement: '',
-  comment: '',
-  contract_status_id: null,
-  file_link: null,
-  price: null,
-  pricelist_id: null,
-})
+/** Дефолты формы — единый источник, чтобы поля не «протекали» между договорами. */
+function emptyForm() {
+  return {
+    id: null,
+    number: '',
+    date_from: null,
+    date_to: null,
+    contract_period: null,
+    organization_id: null,
+    type_of_validity: null,
+    responsible_person_id: null,
+    address: '',
+    additional_agreement: '',
+    comment: '',
+    contract_status_id: null,
+    file_link: null,
+    price: null,
+    pricelist_id: null,
+  }
+}
+
+const form = reactive(emptyForm())
 
 const newFile = ref(null)
 const files = ref([])
@@ -762,39 +767,30 @@ watch(
   () => contract.value,
   (newVal) => {
     isCustomPrice.value = false
-    Object.assign(
-      form,
-      newVal || {
-        id: null,
-        number: '',
-        date_from: null,
-        date_to: null,
-        contract_period: null,
-        organization_id: null,
-        type_of_validity: null,
-        responsible_person_id: null,
-        address: '',
-        additional_agreement: '',
-        comment: '',
-        contract_status_id: null,
-        file_link: null,
-        price: null,
-        pricelist_id: null,
-      },
-    )
+
+    // Сначала полный сброс на дефолты: приходящий объект может не содержать
+    // часть полей, и без сброса в форме остались бы значения прошлого договора.
+    Object.assign(form, emptyForm())
+    if (newVal) {
+      for (const [key, value] of Object.entries(newVal)) {
+        if (key in form) form[key] = value
+      }
+    }
 
     newFile.value = null
     pendingFiles.value = []
+    newUpdFile.value = null
+    pendingUpdFiles.value = []
+    files.value = []
+    updFiles.value = []
+    supplementaryAgreements.value = []
+    historyItems.value = []
 
     if (newVal?.id) {
       loadFiles(newVal.id)
       loadUpdFiles(newVal.id)
       loadSupplementaryAgreements(newVal.id)
       loadHistory(newVal.id)
-    } else {
-      files.value = []
-      supplementaryAgreements.value = []
-      historyItems.value = []
     }
   },
   { immediate: true },
@@ -983,12 +979,14 @@ async function removeSupplementaryAgreement(id) {
 
 function onPricelistSelected(pricelistId) {
   if (!pricelistId) {
+    // Позицию сняли — цена становится ручной, значение оставляем пользователю.
     isCustomPrice.value = true
     return
   }
   const item = props.pricelistOpt?.find((p) => p.id === pricelistId)
   if (item) {
-    form.price = parseFloat(item.price)
+    const price = parseFloat(item.price)
+    form.price = Number.isNaN(price) ? null : price
     isCustomPrice.value = false
   }
 }
@@ -1100,15 +1098,17 @@ function save() {
     contract_period: calculateContractPeriod(form.date_from, form.date_to),
   }
 
+  // Диалог закрывает родитель после успешного ответа сервера: при ошибке
+  // сохранения форма должна остаться на экране вместе с введёнными данными.
   emit('save', {
     contract: payload,
     pendingFiles: [...pendingFiles.value],
     pendingUpdFiles: [...pendingUpdFiles.value],
   })
-  emit('update:modelValue', false)
 }
 
 function deleteItem() {
+  if (!confirm('Удалить договор? Вместе с ним удалятся файлы, доп. соглашения и история.')) return
   emit('delete', form.id)
   emit('update:modelValue', false)
 }

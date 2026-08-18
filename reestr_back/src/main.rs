@@ -69,7 +69,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(actix_web::middleware::Logger::default()) // Встроенный логгер Actix
             .service(
                 web::scope("/api/v1")
-                    .route("/registration", web::post().to(handlers::users::add_user))
+                    // Публичной регистрации в системе нет: пользователей заводит администратор
+                    // через /api/v1/admin/users/add.
                     .route("/login", web::post().to(auth::secure::login_user))
                     .route("/roles/get", web::get().to(handlers::users::get_roles))
                     .service(

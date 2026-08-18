@@ -55,11 +55,11 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue'
+import { reactive } from 'vue'
 import { useNotify } from '@/composables/useNotify.js'
 
-const props = defineProps(['modelValue', 'organization', 'validityTypesOpt'])
-const emit = defineEmits(['update:modelValue', 'save'])
+defineProps(['modelValue', 'validityTypesOpt'])
+const emit = defineEmits(['update:modelValue', 'save', 'delete'])
 
 const { notifyError } = useNotify()
 
@@ -69,15 +69,6 @@ const form = reactive({
 })
 
 const errors = reactive({ name: '' })
-
-watch(
-  () => props.organization,
-  (newVal) => {
-    Object.assign(form, newVal || { id: null, name: '' })
-    clearErrors()
-  },
-  { immediate: true },
-)
 
 function clearErrors() {
   errors.name = ''
@@ -94,17 +85,23 @@ function validateForm() {
   return valid
 }
 
-async function save() {
+function save() {
   if (!validateForm()) {
     notifyError('Ошибка заполнения формы', 'Пожалуйста, исправьте ошибки')
     return
   }
 
-  try {
-    await emit('save', { ...form })
-    emit('update:modelValue', false)
-  } catch (e) {
-    notifyError('Ошибка сохранения', e.message)
-  }
+  // Поле очищает родитель после успешного ответа сервера — иначе при ошибке
+  // (дубликат, сеть) пользователь получит пустое поле и потеряет введённое.
+  emit('save', { ...form, name: form.name.trim() })
 }
+
+/** Вызывается родителем после успешного сохранения. */
+function reset() {
+  form.id = null
+  form.name = ''
+  clearErrors()
+}
+
+defineExpose({ reset })
 </script>

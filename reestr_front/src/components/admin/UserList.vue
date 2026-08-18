@@ -13,6 +13,12 @@
       </v-chip>
     </template>
 
+    <template #item.is_active="{ item }">
+      <v-chip size="small" :color="item.is_active === false ? 'error' : 'success'" variant="tonal">
+        {{ item.is_active === false ? 'Отключён' : 'Активен' }}
+      </v-chip>
+    </template>
+
     <template #item.actions="{ item }">
       <v-btn icon="mdi-pencil" size="small" variant="text" @click="$emit('edit', item)" />
       <v-btn
@@ -34,6 +40,7 @@ const headers = [
   { title: 'Имя', key: 'username', sortable: true },
   { title: 'Логин', key: 'login', sortable: true },
   { title: 'Роль', key: 'role', sortable: true },
+  { title: 'Статус', key: 'is_active', sortable: true },
   { title: 'Действия', key: 'actions', sortable: false, align: 'end' },
 ]
 </script>

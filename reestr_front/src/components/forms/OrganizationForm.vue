@@ -124,19 +124,23 @@ const organizationStore = OrganizationUtil()
 
 const isLoadingInn = ref(false)
 
-const form = reactive({
-  id: null,
-  short_name_with_opf: '',
-  inn: null,
-  fact_address: '',
-  legal_address: '',
-  management_post: '',
-  management_name: '',
-  ogrn: '',
-  full_name_with_opf: '',
-  opf_full: '',
-  opf_short: '',
-})
+function emptyForm() {
+  return {
+    id: null,
+    short_name_with_opf: '',
+    inn: null,
+    fact_address: '',
+    legal_address: '',
+    management_post: '',
+    management_name: '',
+    ogrn: '',
+    full_name_with_opf: '',
+    opf_full: '',
+    opf_short: '',
+  }
+}
+
+const form = reactive(emptyForm())
 
 const errors = reactive({
   short_name_with_opf: '',
@@ -146,22 +150,12 @@ const errors = reactive({
 watch(
   () => props.organization,
   (newVal) => {
-    Object.assign(
-      form,
-      newVal || {
-        id: null,
-        short_name_with_opf: '',
-        inn: null,
-        fact_address: '',
-        legal_address: '',
-        management_post: '',
-        management_name: '',
-        ogrn: '',
-        full_name_with_opf: '',
-        opf_full: '',
-        opf_short: '',
-      },
-    )
+    Object.assign(form, emptyForm())
+    if (newVal) {
+      for (const [key, value] of Object.entries(newVal)) {
+        if (key in form) form[key] = value ?? emptyForm()[key]
+      }
+    }
     clearErrors()
   },
   { immediate: true },
@@ -209,8 +203,6 @@ async function fillByInn() {
     const orgData = await organizationStore.getOrganizationByInn(form.inn)
     // if (response && response.data) {
     if (orgData) {
-      console.log(orgData)
-
       // Заполняем форму данными с бэкенда
       form.short_name_with_opf = orgData.short_name_with_opf || ''
       form.full_name_with_opf = orgData.full_name_with_opf || ''
@@ -233,24 +225,15 @@ async function fillByInn() {
   }
 }
 
-async function save() {
+function save() {
   if (!validateForm()) {
     notifyError('Ошибка заполнения формы', 'Пожалуйста, исправьте ошибки')
     return
   }
 
-  try {
-    // Преобразуем ИНН в число перед отправкой
-    const formData = {
-      ...form,
-      inn: Number(form.inn), // Приводим к числу
-    }
-
-    await emit('save', formData)
-    emit('update:modelValue', false)
-  } catch (e) {
-    notifyError('Ошибка сохранения', e.message)
-  }
+  // Диалог закрывает родитель — и только после успешного ответа сервера,
+  // иначе при ошибке сохранения введённые данные пропадут.
+  emit('save', { ...form, inn: Number(form.inn) })
 }
 
 function deleteItem() {

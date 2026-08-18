@@ -1,21 +1,24 @@
 import { defineStore } from 'pinia'
 import apiClient from '@/axios' // Импортируем отдельный экземпляр Axios
 
+function emptyUser() {
+  return {
+    login: null,
+    username: null,
+    id: null,
+    role: null,
+  }
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: null,
-    user: {
-      login: null,
-      username: null,
-      id: null,
-      role: null,
-    },
+    user: emptyUser(),
   }),
   actions: {
     async login(credentials) {
       try {
         const response = await apiClient.post('/api/v1/login', credentials)
-        console.log(response)
         this.token = response.data.token
 
         this.initUser(this.token)
@@ -23,23 +26,38 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('token', this.token) // Сохраняем токен в localStorage
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${this.token}` // Устанавливаем токен в заголовки
       } catch (error) {
+        const status = error.response?.status
+        if (status === 403) {
+          throw new Error('Учётная запись отключена')
+        }
+        if (status === 401) {
+          throw new Error('Неверный логин или пароль')
+        }
         throw new Error('Ошибка авторизации')
       }
     },
     logout() {
       this.token = null
-      this.user = null
+      // Именно пустой объект, а не null: форму user читают шаблоны и router guard.
+      this.user = emptyUser()
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       delete apiClient.defaults.headers.common['Authorization']
     },
     initialize() {
       const token = localStorage.getItem('token')
-      if (token) {
-        this.token = token
-        this.initUser(token)
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      if (!token) return
+
+      // Просроченный токен нет смысла восстанавливать: все запросы вернут 401.
+      const claims = this.parseJwt(token)
+      if (!claims || (claims.exp && claims.exp * 1000 <= Date.now())) {
+        localStorage.removeItem('token')
+        return
       }
+
+      this.token = token
+      this.initUser(token)
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
     },
     initUser(token) {
       const decodedData = this.parseJwt(token)
