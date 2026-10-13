@@ -14,6 +14,9 @@ GIT_BARE_DIR="/opt/reestrdogovorov.git"
 FRONT_STATIC_DIR="/var/www/reestrdogovorov"
 SERVICE_NAME="reestr-back"
 DEPLOY_BRANCH="master"
+# Диск контейнера ~8 ГБ и не расширяется: сборке cargo нужен запас,
+# а при нехватке места падают ещё и загрузки файлов пользователей.
+MIN_FREE_MB=1024
 
 log()  { echo -e "\033[1;34m[deploy]\033[0m $*"; }
 ok()   { echo -e "\033[1;32m[  ok  ]\033[0m $*"; }
@@ -34,6 +37,11 @@ while read -r OLD_REV NEW_REV REF_NAME; do
   fi
 
   DEPLOYED=1
+
+  FREE_MB=$(df -Pm "${APP_DIR}" | awk 'NR==2 {print $4}')
+  if (( FREE_MB < MIN_FREE_MB )); then
+    fail "Свободно ${FREE_MB} МБ (< ${MIN_FREE_MB} МБ). Освободите место: df -h /; du -xh --max-depth=2 / | sort -rh | head"
+  fi
   log "Деплой ветки '${BRANCH}' (${NEW_REV:0:8})..."
   log "$(date '+%Y-%m-%d %H:%M:%S')"
   log "=========================================="
@@ -55,6 +63,10 @@ while read -r OLD_REV NEW_REV REF_NAME; do
 
   npm ci --silent || fail "npm ci завершился с ошибкой"
   npm run build   || fail "npm run build завершился с ошибкой"
+  # node_modules (~260 МБ) и кеш npm (~370 МБ) после сборки не нужны:
+  # npm ci при следующем деплое всё равно ставит зависимости с нуля.
+  rm -rf node_modules
+  npm cache clean --force --silent 2>/dev/null || true
   ok "Фронтенд собран → ${APP_DIR}/reestr_front/dist"
 
   # ---------------------------------------------------------------------------
@@ -97,6 +109,7 @@ while read -r OLD_REV NEW_REV REF_NAME; do
 
   log "=========================================="
   ok "Деплой завершён успешно! $(date '+%Y-%m-%d %H:%M:%S')"
+  log "Свободно на диске: $(df -h "${APP_DIR}" | awk 'NR==2 {print $4}')"
 done
 
 if [[ $DEPLOYED -eq 0 ]]; then

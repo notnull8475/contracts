@@ -378,6 +378,19 @@ chmod 440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}" && ok "Sudoers настроен" || err "Ошибка в sudoers — проверьте ${SUDOERS_FILE}"
 
 # =============================================================================
+# Лимит журнала systemd (копия infra/journald/reestr.conf)
+# =============================================================================
+# Диск контейнера маленький: без лимита journald занимает до 10% диска.
+mkdir -p /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/reestr.conf <<'JOURNALD'
+[Journal]
+SystemMaxUse=200M
+RuntimeMaxUse=50M
+JOURNALD
+systemctl restart systemd-journald
+ok "Лимит журнала: 200M"
+
+# =============================================================================
 # Готово
 # =============================================================================
 echo ""
