@@ -19,18 +19,35 @@ pub async fn add_contract(contract: ContractDTO) -> Result<Contract, String> {
 
 pub async fn remove_contract(contract_id: i32) -> Result<usize, String> {
     let connection = &mut establish_connection();
-    diesel::delete(contract::table.filter(contract::id.eq(contract_id)))
+
+    // Записи contract_files удалятся каскадом, а файлы на диске — нет:
+    // запоминаем их имена до удаления договора.
+    let stored_files: Vec<String> = crate::schema::contract_files::table
+        .filter(crate::schema::contract_files::contract_fk.eq(contract_id))
+        .select(crate::schema::contract_files::file_name)
+        .load(connection)
+        .map_err(|e| format!("Error to load contract files: {}", e))?;
+
+    let result = diesel::delete(contract::table.filter(contract::id.eq(contract_id)))
         .execute(connection)
-        .map_err(|e| format!("Error to delete contract: {}", e))
+        .map_err(|e| format!("Error to delete contract: {}", e))?;
+
+    crate::services::contract_files::remove_stored_files(&stored_files);
+    Ok(result)
 }
 
-pub async fn update_contract(contract: Contract) -> Result<Contract, String> {
+pub async fn update_contract(mut contract: Contract) -> Result<Contract, String> {
     let connection = &mut establish_connection();
 
     let old: Contract = contract::table
         .filter(contract::id.eq(contract.id))
         .first(connection)
         .map_err(|e| format!("Contract not found: {}", e))?;
+
+    // Changeset пишет null для None, а этих полей в форме нет —
+    // без подстановки дата создания стёрлась бы при каждом сохранении.
+    contract.created_time = old.created_time;
+    contract.updated_time = Some(chrono::Utc::now().naive_utc());
 
     let result = diesel::update(contract::table)
         .filter(contract::id.eq(contract.id))

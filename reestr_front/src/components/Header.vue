@@ -1,7 +1,6 @@
 <template>
   <v-app-bar color="#114b5f" density="comfortable" elevation="2">
     <v-app-bar-nav-icon v-if="isAuthorized" class="d-md-none" @click="drawer = !drawer" />
-    <v-img src="@/assets/logo.png" max-height="34" max-width="96" contain class="mr-3 ml-2" />
     <v-toolbar-title class="font-weight-bold text-uppercase">Реестр договоров</v-toolbar-title>
 
     <v-spacer />

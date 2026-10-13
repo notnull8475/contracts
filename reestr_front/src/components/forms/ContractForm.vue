@@ -1191,6 +1191,8 @@ function save() {
     date_from: toApiDateTime(form.date_from),
     date_to: toApiDateTime(form.date_to),
     contract_period: calculateContractPeriod(form.date_from, form.date_to),
+    // Очищенное поле type="number" даёт '' — бэкенд ждёт число или null.
+    price: form.price === '' || form.price == null ? null : form.price,
   }
 
   // Диалог закрывает родитель после успешного ответа сервера: при ошибке

@@ -2,10 +2,13 @@ use crate::schema::contract;
 use bigdecimal::BigDecimal;
 use chrono::NaiveDateTime;
 use diesel::{AsChangeset, Insertable, Queryable};
+use crate::utils::utils::empty_string_as_none_decimal;
 use serde::{Deserialize, Serialize};
 
+// treat_none_as_null: при обновлении очищенное поле (null) должно записываться в БД,
+// а не молча пропускаться. Поля, которых нет в форме, сервис берёт из старой записи.
 #[derive(Queryable, Insertable, AsChangeset, Serialize, Deserialize, Debug)]
-#[diesel(table_name = contract)]
+#[diesel(table_name = contract, treat_none_as_null = true)]
 pub struct Contract {
     pub id: i32,
     pub number: String,
@@ -22,6 +25,7 @@ pub struct Contract {
     pub updated_time: Option<NaiveDateTime>,
     pub file_link: Option<String>,
     pub contract_status_id: Option<i32>,
+    #[serde(default, deserialize_with = "empty_string_as_none_decimal")]
     pub price: Option<BigDecimal>,
     pub pricelist_id: Option<i32>,
 }
@@ -41,6 +45,7 @@ pub struct ContractDTO {
     pub comment: Option<String>,
     pub file_link: Option<String>,
     pub contract_status_id: Option<i32>,
+    #[serde(default, deserialize_with = "empty_string_as_none_decimal")]
     pub price: Option<BigDecimal>,
     pub pricelist_id: Option<i32>,
 }

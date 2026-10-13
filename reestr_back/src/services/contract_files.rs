@@ -37,9 +37,13 @@ pub async fn save_file(
     let file_path = get_files_dir().join(&stored_filename);
     let mut file = fs::File::create(&file_path)
         .map_err(|e| format!("Failed to create file: {}", e))?;
-    
-    file.write_all(&file_data)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    // При ошибке записи (например, ENOSPC) на диске остаётся обрезанный файл без записи в БД.
+    if let Err(e) = file.write_all(&file_data).and_then(|_| file.sync_all()) {
+        drop(file);
+        let _ = fs::remove_file(&file_path);
+        return Err(format!("Failed to write file: {}", e));
+    }
 
     let dto = ContractFileDTO {
         contract_fk: contract_id,
@@ -109,15 +113,26 @@ pub async fn delete_file(file_id: i32) -> Result<(), String> {
         .first::<ContractFile>(conn)
         .map_err(|e| format!("File not found: {}", e))?;
 
-    let file_path = get_files_dir().join(&file.file_name);
-    if file_path.exists() {
-        fs::remove_file(&file_path)
-            .map_err(|e| format!("Failed to delete file: {}", e))?;
-    }
-
+    // Сначала запись в БД: если её удаление упадёт, файл должен остаться на месте,
+    // иначе запись будет указывать в пустоту и скачивание вернёт 500.
     diesel::delete(contract_files.filter(id.eq(file_id)))
         .execute(conn)
         .map_err(|e| format!("Failed to delete file record: {}", e))?;
 
+    remove_stored_files(&[file.file_name]);
+
     Ok(())
+}
+
+/// Удаляет файлы из хранилища по именам из `contract_files.file_name`.
+/// Ошибки только логируются: запись в БД уже удалена, откатывать нечего.
+pub fn remove_stored_files(names: &[String]) {
+    for name in names {
+        let path = get_files_dir().join(name);
+        if let Err(e) = fs::remove_file(&path) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                log::error!("Failed to delete stored file {}: {}", path.display(), e);
+            }
+        }
+    }
 }

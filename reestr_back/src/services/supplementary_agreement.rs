@@ -59,13 +59,18 @@ pub async fn add(dto: SupplementaryAgreementDTO) -> Result<SupplementaryAgreemen
     Ok(result)
 }
 
-pub async fn update(dto: SupplementaryAgreementUpdateDTO) -> Result<SupplementaryAgreement, String> {
+pub async fn update(mut dto: SupplementaryAgreementUpdateDTO) -> Result<SupplementaryAgreement, String> {
     let conn = &mut establish_connection();
 
     let old: SupplementaryAgreement = supplementary_agreement
         .filter(id.eq(dto.id))
         .first(conn)
         .map_err(|e| format!("Доп соглашение не найдено: {}", e))?;
+
+    // Changeset пишет null для None; file_link форма не редактирует — сохраняем старое.
+    if dto.file_link.is_none() {
+        dto.file_link = old.file_link.clone();
+    }
 
     let result = diesel::update(supplementary_agreement.filter(id.eq(dto.id)))
         .set(&dto)
@@ -77,19 +82,18 @@ pub async fn update(dto: SupplementaryAgreementUpdateDTO) -> Result<Supplementar
         .map(|d| d.format("%d.%m.%Y").to_string())
         .unwrap_or_else(|| "без даты".to_string());
 
-    // AsChangeset пропускает поля со значением None, поэтому отсутствующее в запросе
-    // поле не меняет данные — и не должно попадать в историю как изменение.
+    // Changeset записывает и очистку поля (null), поэтому сравниваем значения целиком.
     let mut changes: Vec<String> = Vec::new();
-    if dto.number.is_some() && dto.number != old.number {
+    if dto.number != old.number {
         changes.push(format!("номер: {} → {}", old.number.as_deref().unwrap_or("-"), sa_num));
     }
-    if dto.date_from.is_some() && dto.date_from != old.date_from {
+    if dto.date_from != old.date_from {
         changes.push("дата изменена".to_string());
     }
-    if dto.description.is_some() && dto.description != old.description {
+    if dto.description != old.description {
         changes.push("описание изменено".to_string());
     }
-    if dto.price.is_some() && dto.price != old.price {
+    if dto.price != old.price {
         let old_price = old.price.map(|p| p.to_string()).unwrap_or_else(|| "нет".to_string());
         let new_price_val = dto.price.clone().map(|p| p.to_string()).unwrap_or_else(|| "нет".to_string());
         changes.push(format!("цена: {} → {}", old_price, new_price_val));
@@ -140,9 +144,18 @@ pub async fn remove(sid: i32) -> Result<usize, String> {
         old.date_from.map(|d| d.format("%d.%m.%Y").to_string()).unwrap_or_else(|| "без даты".to_string())
     );
 
+    // Записи файлов удалятся каскадом, сами файлы на диске — нет.
+    let stored_files: Vec<String> = crate::schema::contract_files::table
+        .filter(crate::schema::contract_files::supplementary_agreement_id.eq(sid))
+        .select(crate::schema::contract_files::file_name)
+        .load(conn)
+        .map_err(|e| format!("Ошибка получения файлов доп соглашения: {}", e))?;
+
     let result = diesel::delete(supplementary_agreement.filter(id.eq(sid)))
         .execute(conn)
         .map_err(|e| format!("Ошибка удаления доп соглашения: {}", e))?;
+
+    crate::services::contract_files::remove_stored_files(&stored_files);
 
     let _ = diesel::insert_into(crate::schema::contract_history::table)
         .values(&ContractHistoryDTO {

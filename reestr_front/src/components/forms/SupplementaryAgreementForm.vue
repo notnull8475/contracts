@@ -149,10 +149,12 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts.js'
+import { useToastStore } from '@/store/toast.js'
 
 const props = defineProps(['modelValue', 'agreement', 'files'])
 const emit = defineEmits(['update:modelValue', 'save', 'file-deleted'])
 const contractStore = ContractUtil()
+const toast = useToastStore()
 
 const form = reactive({
   id: null,
@@ -167,25 +169,30 @@ const existingFiles = computed(() => props.files || [])
 const pendingFiles = ref([])
 const uploading = ref(false)
 
+function emptyForm() {
+  return { id: null, number: '', date_from: null, description: '', price: null }
+}
+
 watch(
   () => props.agreement,
   async (val) => {
-    Object.assign(
-      form,
-      val || { id: null, number: '', date_from: null, description: '', price: null },
-    )
+    // Сначала сброс на дефолты: для нового соглашения приходит только { contract_id },
+    // и без сброса в форме оставался id прошлого — «Добавить» перезаписывало его.
+    Object.assign(form, emptyForm(), val || {})
     selectedFile.value = null
     pendingFiles.value = []
   },
   { immediate: true },
 )
 
+// Дата хранится как полночь UTC. Через new Date(...).toISOString() локальная
+// полночь в UTC+3 превращалась в 21:00 предыдущего дня — дата съезжала на день назад.
 const formattedDate = computed({
   get() {
-    return form.date_from ? new Date(form.date_from).toISOString().split('T')[0] : ''
+    return form.date_from ? String(form.date_from).slice(0, 10) : ''
   },
   set(value) {
-    form.date_from = value ? new Date(value + 'T00:00:00').toISOString() : null
+    form.date_from = value ? `${value}T00:00:00Z` : null
   },
 })
 
@@ -195,11 +202,13 @@ function save() {
     allPending.push(selectedFile.value)
     selectedFile.value = null
   }
+  // Диалог закрывает родитель после успешного ответа: при ошибке введённое не теряется.
   emit('save', {
     ...form,
+    // Очищенное поле type="number" даёт '' — бэкенд ждёт число или null.
+    price: form.price === '' || form.price == null ? null : form.price,
     pendingFiles: allPending,
   })
-  emit('update:modelValue', false)
 }
 
 function uploadFile() {
@@ -218,6 +227,7 @@ async function downloadFile(fileId) {
     await contractStore.downloadFile(fileId)
   } catch (e) {
     console.error('Failed to download file', e)
+    toast.push(e.response?.data?.error || 'Не удалось скачать файл', 'error')
   }
 }
 
@@ -227,6 +237,7 @@ async function deleteFile(fileId) {
     emit('file-deleted', fileId)
   } catch (e) {
     console.error('Failed to delete file', e)
+    toast.push(e.response?.data?.error || 'Не удалось удалить файл', 'error')
   }
 }
 

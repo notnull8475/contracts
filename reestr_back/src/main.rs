@@ -18,7 +18,6 @@ use actix_web::cookie::SameSite;
 use actix_web::{web, App, HttpServer};
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
-use std::env;
 use std::fs::OpenOptions;
 
 fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
@@ -40,7 +39,6 @@ async fn main() -> std::io::Result<()> {
         eprintln!("Failed to init files directory: {}", e);
     }
     
-    println!("DATABASE_URL = {:?}", env::var("DATABASE_URL"));
     // Initialize the logger
     let _log_file = OpenOptions::new()
         .write(true)

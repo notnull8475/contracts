@@ -678,7 +678,7 @@ async function saveSupplementaryAgreement(dto) {
       await fetchContracts()
     }
   } catch (e) {
-    toast.push(e.message || 'Ошибка сохранения соглашения', 'error')
+    toast.push(e.response?.data?.error || e.message || 'Ошибка сохранения соглашения', 'error')
   }
 }
 
