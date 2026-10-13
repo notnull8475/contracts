@@ -71,6 +71,37 @@ pub async fn save_file(
     Ok(result.into())
 }
 
+/// Проверяет, что файл привязывается к существующей паре «договор + соглашение»:
+/// для `supplementary` соглашение обязательно и должно принадлежать договору,
+/// для остальных типов соглашения быть не должно.
+pub async fn check_upload_target(
+    contract_id: i32,
+    ftype: &str,
+    sa_id: Option<i32>,
+) -> Result<(), String> {
+    use crate::schema::supplementary_agreement::dsl as sa;
+
+    match (ftype, sa_id) {
+        ("supplementary", None) => Err("Для файла доп. соглашения не указано соглашение".into()),
+        ("supplementary", Some(sid)) => {
+            let conn = &mut establish_connection();
+            let owner: Option<i32> = sa::supplementary_agreement
+                .filter(sa::id.eq(sid))
+                .select(sa::contract_id)
+                .first(conn)
+                .optional()
+                .map_err(|e| format!("Failed to check supplementary agreement: {}", e))?;
+            match owner {
+                Some(cid) if cid == contract_id => Ok(()),
+                Some(_) => Err("Доп. соглашение относится к другому договору".into()),
+                None => Err("Доп. соглашение не найдено".into()),
+            }
+        }
+        (_, Some(_)) => Err("Соглашение указывается только для файлов доп. соглашений".into()),
+        (_, None) => Ok(()),
+    }
+}
+
 pub async fn get_files_by_contract(contract_id: i32, ftype: &str) -> Result<Vec<ContractFileResponse>, String> {
     let conn = &mut establish_connection();
 

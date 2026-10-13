@@ -1,10 +1,10 @@
 # Деплой Реестра договоров
 
-Схема: `git push prodserver master` → автоматическая сборка и перезапуск на сервере.
+Схема: `git push prod master` → автоматическая сборка и перезапуск на сервере.
 
 ```
 [Машина разработчика]
-  git push prodserver master
+  git push prod master
           │
           ▼
 [Сервер: /opt/reestrdogovorov.git — bare repo]
@@ -73,7 +73,7 @@ DADATAAPIKEY=ваш_ключ_dadata
 
 Отредактируйте `server_name` в конфиге:
 ```bash
-ssh deploy@<SERVER_IP> "sudo nano /etc/nginx/sites-available/reestrdogovorov.conf"
+ssh deploy@<SERVER_IP> "sudo nano /etc/nginx/sites-available/reestr"
 # Замените reestr.your-domain.local на реальное имя
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -81,7 +81,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ### 5. Добавьте remote на машине разработчика
 
 ```bash
-git remote add prodserver ssh://deploy@<SERVER_IP>/opt/reestrdogovorov.git
+git remote add prod ssh://deploy@<SERVER_IP>/opt/reestrdogovorov.git
 ```
 
 Проверьте подключение:
@@ -95,12 +95,12 @@ ssh deploy@<SERVER_IP> "echo ok"
 
 Стандартный деплой:
 ```bash
-git push prodserver master
+git push prod master
 ```
 
 Деплой текущей ветки в master:
 ```bash
-git push prodserver HEAD:master
+git push prod HEAD:master
 ```
 
 ---

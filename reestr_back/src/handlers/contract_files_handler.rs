@@ -49,6 +49,12 @@ pub async fn upload_file(
         })));
     }
 
+    // Файл соглашения без id соглашения (или с чужим соглашением) не виден ни в одном
+    // списке и навсегда остаётся на диске — отсекаем такие запросы сразу.
+    if let Err(message) = file_service::check_upload_target(contract_id, &ftype, sa_id).await {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({ "error": message })));
+    }
+
     while let Some(item) = payload.try_next().await.map_err(|e| {
         actix_web::error::ErrorBadRequest(e.to_string())
     })? {

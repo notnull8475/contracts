@@ -2,3 +2,7 @@
 reestr_back/.env
 reestr_back/files/
 reestr_back/application.log
+.idea/
+reestr_back/.idea/
+reestr_back/.env.*
+reestr_back/dadata.sh

@@ -40,14 +40,14 @@
 ### Инфраструктура
 
 - Сервер: Ubuntu/Debian-подобная система, nginx, systemd, PostgreSQL.
-- Docker-файлы (`reestr_front/Dockerfile`, `reestr_back/Dockerfile`, `reestr_back/docker-compose.yml`) **не используются** в каноническом деплое. Frontend-Dockerfile ссылается на несуществующий `yarn.lock` и использует команду `npm build` вместо `npm run build`; `docker-compose.yml` имеет синтаксические проблемы. Не полагайтесь на них.
+- Сервер — контейнер Proxmox с диском ~8 ГБ, **расширить нельзя**. Следите за местом: при переполнении падают загрузки файлов (ENOSPC) и сборка при деплое. Docker не используется.
 
 ## 3. Структура репозитория
 
 ```
 .
 ├── AGENTS.md                 ← этот файл
-├── .gitignore                ← игнорирует .env, reestr_back/.env, files/, application.log
+├── .gitignore                ← игнорирует .env, reestr_back/.env*, files/, .idea/
 ├── reestr_front/
 │   ├── package.json
 │   ├── vite.config.js
@@ -85,7 +85,9 @@
     ├── setup/server_setup.sh
     ├── deploy/post-receive
     ├── systemd/reestr-back.service
-    └── nginx/reestr.conf
+    ├── nginx/reestr.conf
+    ├── journald/reestr.conf      ← лимит журнала 200M
+    └── tools/cleanup_orphan_files.sh ← удаление файлов без записи в БД
 ```
 
 ## 4. Переменные окружения
@@ -125,17 +127,17 @@ npm run format         # Prettier --write src/
 Все команды выполняются из `reestr_back/`:
 
 ```bash
-cargo run                        # запуск сервера на 0.0.0.0:8080
+cargo run                        # запуск сервера на 127.0.0.1:8080
 cargo run --bin import           # отдельный бинарник импорта
 cargo run --bin import -- --file "../Реестр.xlsx" --dry-run
 cargo check                      # проверка компиляции
 cargo fmt                        # форматирование
-cargo test                       # запуск тестов (сейчас тестов нет)
+cargo test                       # юнит-тесты (имена файлов, разбор цены)
 cargo test --no-run              # скомпилировать тестовые бинари без запуска
 ```
 
 - Для запуска нужны PostgreSQL и заполненный `reestr_back/.env`.
-- Бэкенд пишет лог в `application.log` и в stdout/journal.
+- Бэкенд пишет лог только в stdout → journald (`journalctl -u reestr-back`).
 
 ### Миграции Diesel
 
@@ -151,12 +153,13 @@ diesel print-schema              # перегенерировать src/schema.r
 
 ## 6. Развёртывание
 
-Канонический деплой — `git push prodserver master` (или `git push prodserver HEAD:master`).
+Канонический деплой — `git push prod master` (ремоут `prod` → `ssh://reestrdocdeploy/opt/reestrdogovorov.git`, хост `reestrdocdeploy` = `deploy@192.168.0.24` в `~/.ssh/config`). Ремоут `prodserver` указывает на несуществующий хост.
 
 Что происходит на сервере (хук `infra/deploy/post-receive`):
 
+0. Проверка свободного места: меньше 1 ГБ — деплой прерывается
 1. `git checkout -f master` → `/opt/reestrdogovorov`
-2. `npm ci && npm run build` в `reestr_front/`
+2. `npm ci && npm run build` в `reestr_front/`, затем удаление `node_modules` и кеша npm
 3. `rsync -a --delete reestr_front/dist/` → `/var/www/reestrdogovorov`
 4. `cargo build --release` в `reestr_back/`
 5. `diesel migration run` (с предварительным `sed`-фиксом пути в `diesel.toml`)
@@ -169,12 +172,15 @@ diesel print-schema              # перегенерировать src/schema.r
 - systemd-юнит `reestr-back` загружает `.env` через `EnvironmentFile` и запускает `/opt/reestrdogovorov/reestr_back/target/release/reestr_back`.
 - nginx (конфиг `infra/nginx/reestr.conf`) отдаёт статику фронтенда (`/var/www/reestrdogovorov`) в режиме SPA (fallback на `index.html`) и проксирует `/api/` на `127.0.0.1:8080`.
 - Логи: `journalctl -u reestr-back -n 50 -f` и `/var/log/nginx/reestrdogovorov.*.log`.
+- Хук не обновляется через `git push`: после правки `infra/deploy/post-receive` скопируйте его в `/opt/reestrdogovorov.git/hooks/post-receive`. То же для nginx (`/etc/nginx/sites-available/reestr`). Встроенные копии в `server_setup.sh` держите синхронными.
+- БД находится на отдельном сервере `192.168.0.59`, не в контейнере.
 
 ## 7. API и аутентификация
 
 - Все маршруты бэкенда под `/api/v1/*`. Проводка — в `src/main.rs`.
 - Административные маршруты сгруппированы под `/api/v1/admin/*`.
-- Бэкенд слушает `0.0.0.0:8080`.
+- Бэкенд слушает `127.0.0.1:8080` — снаружи доступен только через nginx.
+- Ошибки разбора JSON возвращаются как `400 {"error": "..."}` (`json_config()` в `main.rs`).
 
 ### Аутентификация двойная
 
@@ -264,7 +270,7 @@ cargo run --bin import -- --file "../Реестр.xlsx" --dry-run
 ## 12. Тестирование
 
 - **Фронтенд:** Vitest. Сейчас есть только дымовой тест `src/smoke.spec.js`.
-- **Бэкенд:** юнит- и интеграционных тестов нет. `cargo test` компилирует тестовые бинари, но не запускает реальных проверок. Для компиляции без запуска используйте `cargo test --no-run`.
+- **Бэкенд:** есть юнит-тесты (`contract_files_handler.rs`, `utils/utils.rs`), интеграционных нет. `cargo test --no-run` — компиляция без запуска.
 - Проверки качества: `npm run format` (Prettier) + `cargo fmt`.
 
 ## 13. Безопасность и важные замечания
@@ -273,7 +279,7 @@ cargo run --bin import -- --file "../Реестр.xlsx" --dry-run
 - `JWT_SECRET` должен быть не короче 32 символов; иначе сервер падает на старте.
 - Пароли хешируются через bcrypt.
 - Cookie-сессия шифруется, имеет флаг `HttpOnly` и `SameSite=Strict`, но `cookie_secure(false)` — в production желательно включить HTTPS и перевести в `true`.
-- CORS настроен крайне разрешительно (`allow_any_origin`, `allow_any_method`, `allow_any_header`) — только для разработки/внутренних сетей; на публичном продакшене нужно ограничить.
+- CORS настроен крайне разрешительно (`allow_any_origin`, `allow_any_method`, `allow_any_header`); снаружи бэкенд закрыт привязкой к 127.0.0.1.
 - DaData-запросы выполняются с ключом `DADATAAPIKEY` и внешним вызовом на `suggestions.dadata.ru`.
 - Админ-эндпоинты защищены ролью `admin`; остальные защищённые эндпоинты требуют только валидный JWT. Если появится необходимость разграничивать `moderator`/`user`, потребуется дополнительная проверка.
-- Docker- и compose-файлы не используются в текущем деплое и содержат ошибки; не опирайтесь на них.
+- Не логируйте `DATABASE_URL`: в нём пароль, а журнал читают при отладке.

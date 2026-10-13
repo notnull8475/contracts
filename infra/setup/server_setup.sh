@@ -9,6 +9,8 @@
 #   ssh <USER>@<SERVER_IP> "sudo bash -s" < infra/setup/server_setup.sh
 #
 # Скрипт полностью самодостаточен — все конфиги встроены через heredoc.
+# Хук и nginx-конфиг — дословные копии infra/deploy/post-receive и
+# infra/nginx/reestr.conf: при их изменении обновляйте и копии здесь.
 # =============================================================================
 
 set -euo pipefail
@@ -148,93 +150,123 @@ fi
 log "[8/12] Git-хук post-receive..."
 HOOK_FILE="${GIT_BARE_DIR}/hooks/post-receive"
 
-cat > "${HOOK_FILE}" << HOOK_SCRIPT
+cat > "${HOOK_FILE}" << 'HOOK_SCRIPT'
 #!/bin/bash
 # =============================================================================
-# post-receive — автодеплой при git push prodserver master
+# post-receive — Git-хук для деплоя Реестра договоров
 # =============================================================================
-set -euo pipefail
+# Расположение на сервере: /opt/reestrdogovorov.git/hooks/post-receive
+# Запускается автоматически при: git push prodserver master
+# =============================================================================
 
-APP_DIR="${APP_DIR}"
-GIT_BARE_DIR="${GIT_BARE_DIR}"
-FRONT_STATIC_DIR="${FRONT_STATIC_DIR}"
-SERVICE_NAME="${SERVICE_NAME}"
-DEPLOY_BRANCH="${DEPLOY_BRANCH}"
-CARGO_BIN="${CARGO_BIN}"
+set -e
 
-export PATH="\${CARGO_BIN}:\${PATH}"
-export HOME="${DEPLOY_HOME}"
+APP_USER="deploy"
+APP_DIR="/opt/reestrdogovorov"
+GIT_BARE_DIR="/opt/reestrdogovorov.git"
+FRONT_STATIC_DIR="/var/www/reestrdogovorov"
+SERVICE_NAME="reestr-back"
+DEPLOY_BRANCH="master"
+# Диск контейнера ~8 ГБ и не расширяется: сборке cargo нужен запас,
+# а при нехватке места падают ещё и загрузки файлов пользователей.
+MIN_FREE_MB=1024
 
-log()  { echo -e "\033[1;34m[deploy]\033[0m \$*"; }
-ok()   { echo -e "\033[1;32m[  ok  ]\033[0m \$*"; }
-fail() { echo -e "\033[1;31m[ fail ]\033[0m \$*" >&2; exit 1; }
+log()  { echo -e "\033[1;34m[deploy]\033[0m $*"; }
+ok()   { echo -e "\033[1;32m[  ok  ]\033[0m $*"; }
+fail() { echo -e "\033[1;31m[ fail ]\033[0m $*" >&2; exit 1; }
 
+# Убеждаемся что Rust/cargo/diesel доступны
+export PATH="${HOME}/.cargo/bin:${PATH}"
+
+# -----------------------------------------------------------------------------
+# Читаем refs из stdin (стандартное поведение post-receive)
+# -----------------------------------------------------------------------------
 DEPLOYED=0
 while read -r OLD_REV NEW_REV REF_NAME; do
-  BRANCH="\${REF_NAME##refs/heads/}"
-  if [[ "\${BRANCH}" != "\${DEPLOY_BRANCH}" ]]; then
-    log "Ветка '\${BRANCH}' пропускается (деплоим только '\${DEPLOY_BRANCH}')"
+  BRANCH="${REF_NAME##refs/heads/}"
+  if [[ "${BRANCH}" != "${DEPLOY_BRANCH}" ]]; then
+    log "Ветка '${BRANCH}' пропускается (деплоим только '${DEPLOY_BRANCH}')"
     continue
   fi
 
   DEPLOYED=1
-  log "========================================"
-  log "Деплой ветки '\${BRANCH}' (\${NEW_REV:0:8})"
-  log "\$(date '+%Y-%m-%d %H:%M:%S')"
-  log "========================================"
 
-  # 1. Обновляем код
+  FREE_MB=$(df -Pm "${APP_DIR}" | awk 'NR==2 {print $4}')
+  if (( FREE_MB < MIN_FREE_MB )); then
+    fail "Свободно ${FREE_MB} МБ (< ${MIN_FREE_MB} МБ). Освободите место: df -h /; du -xh --max-depth=2 / | sort -rh | head"
+  fi
+  log "Деплой ветки '${BRANCH}' (${NEW_REV:0:8})..."
+  log "$(date '+%Y-%m-%d %H:%M:%S')"
+  log "=========================================="
+
+  # ---------------------------------------------------------------------------
+  # 1. Перенос кода из bare-репо в рабочую директорию
+  # ---------------------------------------------------------------------------
   log "[1/6] Обновляем исходный код..."
-  export GIT_WORK_TREE="\${APP_DIR}"
-  export GIT_DIR="\${GIT_BARE_DIR}"
-  git checkout -f "\${DEPLOY_BRANCH}"
-  unset GIT_DIR GIT_WORK_TREE
-  ok "Код обновлён"
+  export GIT_WORK_TREE="${APP_DIR}"
+  export GIT_DIR="${GIT_BARE_DIR}"
+  git checkout -f "${DEPLOY_BRANCH}"
+  ok "Исходный код обновлён"
 
+  # ---------------------------------------------------------------------------
   # 2. Сборка фронтенда
+  # ---------------------------------------------------------------------------
   log "[2/6] Сборка фронтенда..."
-  cd "\${APP_DIR}/reestr_front"
-  npm ci --silent              || fail "npm ci завершился с ошибкой"
-  npm run build                || fail "npm run build завершился с ошибкой"
-  ok "Фронтенд собран"
+  cd "${APP_DIR}/reestr_front"
 
+  npm ci --silent || fail "npm ci завершился с ошибкой"
+  npm run build   || fail "npm run build завершился с ошибкой"
+  # node_modules (~260 МБ) и кеш npm (~370 МБ) после сборки не нужны:
+  # npm ci при следующем деплое всё равно ставит зависимости с нуля.
+  rm -rf node_modules
+  npm cache clean --force --silent 2>/dev/null || true
+  ok "Фронтенд собран → ${APP_DIR}/reestr_front/dist"
+
+  # ---------------------------------------------------------------------------
   # 3. Публикация статики
-  log "[3/6] Публикация статики → \${FRONT_STATIC_DIR}..."
-  mkdir -p "\${FRONT_STATIC_DIR}"
-  rsync -a --delete "\${APP_DIR}/reestr_front/dist/" "\${FRONT_STATIC_DIR}/"
+  # ---------------------------------------------------------------------------
+  log "[3/6] Публикация статики → ${FRONT_STATIC_DIR}..."
+  mkdir -p "${FRONT_STATIC_DIR}"
+  rsync -a --delete "${APP_DIR}/reestr_front/dist/" "${FRONT_STATIC_DIR}/"
   ok "Статика опубликована"
 
+  # ---------------------------------------------------------------------------
   # 4. Сборка бэкенда
+  # ---------------------------------------------------------------------------
   log "[4/6] Сборка бэкенда (cargo build --release)..."
-  cd "\${APP_DIR}/reestr_back"
-  cargo build --release        || fail "cargo build завершился с ошибкой"
-  ok "Бэкенд собран"
+  cd "${APP_DIR}/reestr_back"
+  cargo build --release 2>&1 || fail "cargo build завершился с ошибкой"
+  ok "Бэкенд собран → ${APP_DIR}/reestr_back/target/release/reestr_back"
 
-  # 5. Миграции БД
-  log "[5/6] Применение миграций..."
-  cd "\${APP_DIR}/reestr_back"
-  # Фиксим diesel.toml (перезатирается git checkout)
+  # ---------------------------------------------------------------------------
+  # 5. Применение миграций БД
+  # ---------------------------------------------------------------------------
+  log "[5/6] Применение миграций БД..."
+  cd "${APP_DIR}/reestr_back"
   sed -i 's|dir = "/home/mechanicus/.*"|dir = "/opt/reestrdogovorov/reestr_back/migrations"|' diesel.toml
-  diesel migration run         || fail "diesel migration run завершился с ошибкой"
+  diesel migration run 2>&1 || fail "diesel migration run завершился с ошибкой"
   ok "Миграции применены"
 
+  # ---------------------------------------------------------------------------
   # 6. Перезапуск сервиса
-  log "[6/6] Перезапуск сервиса \${SERVICE_NAME}..."
-  sudo systemctl restart "\${SERVICE_NAME}" || fail "Не удалось перезапустить \${SERVICE_NAME}"
+  # ---------------------------------------------------------------------------
+  log "[6/6] Перезапуск сервиса ${SERVICE_NAME}..."
+  sudo systemctl restart "${SERVICE_NAME}" || fail "Не удалось перезапустить ${SERVICE_NAME}"
   sleep 2
-  if systemctl is-active --quiet "\${SERVICE_NAME}"; then
-    ok "Сервис \${SERVICE_NAME} запущен"
+
+  if systemctl is-active --quiet "${SERVICE_NAME}"; then
+    ok "Сервис ${SERVICE_NAME} запущен"
   else
-    fail "\${SERVICE_NAME} не запустился. Лог: journalctl -u \${SERVICE_NAME} -n 30"
+    fail "Сервис ${SERVICE_NAME} не запустился — проверьте: journalctl -u ${SERVICE_NAME} -n 30"
   fi
 
-  log "========================================"
-  ok "Деплой завершён! \$(date '+%Y-%m-%d %H:%M:%S')"
-  log "========================================"
+  log "=========================================="
+  ok "Деплой завершён успешно! $(date '+%Y-%m-%d %H:%M:%S')"
+  log "Свободно на диске: $(df -h "${APP_DIR}" | awk 'NR==2 {print $4}')"
 done
 
-if [[ \$DEPLOYED -eq 0 ]]; then
-  log "Ветка '\${DEPLOY_BRANCH}' не найдена в push — деплой не выполнялся"
+if [[ $DEPLOYED -eq 0 ]]; then
+  log "Нет ветки '${DEPLOY_BRANCH}' в push — деплой не выполнялся"
 fi
 HOOK_SCRIPT
 
@@ -281,54 +313,79 @@ ok "Systemd unit создан и включён"
 # =============================================================================
 log "[10/12] Nginx конфиг..."
 
-NGINX_CONF="/etc/nginx/sites-available/${APP_NAME}.conf"
+NGINX_CONF="/etc/nginx/sites-available/reestr"
 
-cat > "${NGINX_CONF}" << NGINX_CONF_CONTENT
-# Реестр договоров — nginx конфиг
-# Внешний прокси → этот сервер :80
-#   /api/ → 127.0.0.1:8080 (Actix-web)
-#   /     → /var/www/${APP_NAME} (Vue dist)
+cat > "${NGINX_CONF}" << 'NGINX_CONF_CONTENT'
+# =============================================================================
+# Nginx конфиг для Реестра договоров
+# =============================================================================
+# Расположение на сервере: /etc/nginx/sites-available/reestr
+# Симлинк:                  /etc/nginx/sites-enabled/reestr
+#
+# Схема:
+#   [Внешний Nginx-прокси] → :80 этого сервера
+#       ├── /api/   → http://127.0.0.1:8080  (Actix-web backend)
+#       └── /       → /var/www/reestrdogovorov  (Vue frontend dist)
+# =============================================================================
 
 server {
-    listen 80;
+    # Внешний прокси (192.168.0.10) приходит с Host: reestr.hotelpost.ru,
+    # из локальной сети заходят по IP — default_server ловит и такие запросы.
+    listen 80 default_server;
+    server_name reestr.hotelpost.ru reestr.ecourier.ru;
 
-    # Замените на реальное имя хоста (то, что настроено на внешнем прокси)
-    server_name reestr.your-domain.local;
+    # --- Заголовки безопасности -------------------------------------------------
+    # add_header во вложенном location отменяет заголовки уровня server,
+    # поэтому в location со статикой они повторены.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "same-origin" always;
 
-    root ${FRONT_STATIC_DIR};
+    # --- Frontend (статика Vue) -----------------------------------------------
+    root /var/www/reestrdogovorov;
     index index.html;
 
-    # Frontend — SPA
     location / {
-        try_files \$uri \$uri/ /index.html;
+        # SPA-режим: все пути отдаём через index.html (Vue Router)
+        try_files $uri $uri/ /index.html;
 
-        location ~* \.(js|css|woff2?|ttf|eot|svg|png|jpg|ico)\$ {
+        # Кэш для статических ассетов с хешем в имени
+        location ~* \.(js|css|woff2?|ttf|eot|svg|png|jpg|ico)$ {
             expires 30d;
             add_header Cache-Control "public, immutable";
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header Referrer-Policy "same-origin" always;
             access_log off;
         }
     }
 
-    # Backend API
+    # --- Backend API ----------------------------------------------------------
     location /api/ {
         proxy_pass         http://127.0.0.1:8080;
         proxy_http_version 1.1;
-        proxy_set_header   Host              \$host;
-        proxy_set_header   X-Real-IP         \$remote_addr;
-        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto \$scheme;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Таймауты (важно для долгих запросов к Dadata)
         proxy_connect_timeout 10s;
         proxy_read_timeout    60s;
         proxy_send_timeout    60s;
-        client_max_body_size  50M;
+
+        # Размер для загрузки файлов договоров
+        client_max_body_size 50M;
     }
 
-    access_log /var/log/nginx/${APP_NAME}.access.log;
-    error_log  /var/log/nginx/${APP_NAME}.error.log warn;
+    # --- Логи -----------------------------------------------------------------
+    access_log /var/log/nginx/reestrdogovorov.access.log;
+    error_log  /var/log/nginx/reestrdogovorov.error.log warn;
 }
 NGINX_CONF_CONTENT
 
-ln -sf "${NGINX_CONF}" "/etc/nginx/sites-enabled/${APP_NAME}.conf"
+ln -sf "${NGINX_CONF}" "/etc/nginx/sites-enabled/reestr"
 rm -f /etc/nginx/sites-enabled/default
 
 nginx -t && systemctl reload nginx
@@ -403,9 +460,9 @@ echo ""
 info " 1. Заполните .env на сервере:"
 info "    nano ${ENV_FILE}"
 echo ""
-info " 2. Замените server_name в nginx конфиге:"
-info "    nano /etc/nginx/sites-available/${APP_NAME}.conf"
-info "    (замените 'reestr.your-domain.local' на реальное имя)"
+info " 2. Проверьте server_name в nginx конфиге:"
+info "    nano /etc/nginx/sites-available/reestr"
+info "    (при другом имени хоста замените server_name)"
 info "    nginx -t && systemctl reload nginx"
 echo ""
 info " 3. Добавьте SSH-ключ для пользователя ${APP_USER} (если нужен):"

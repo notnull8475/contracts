@@ -18,7 +18,6 @@ use actix_web::cookie::SameSite;
 use actix_web::{web, App, HttpServer};
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
-use std::fs::OpenOptions;
 
 fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
     SessionMiddleware::builder(CookieSessionStore::default(), cookie_session_key())
@@ -30,6 +29,23 @@ fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
         .cookie_http_only(true) // disallow scripts from reading
         .build()
 }
+const BIND_ADDR: &str = "127.0.0.1:8080";
+
+/// Ошибки разбора JSON отдаём как `{"error": "..."}` — этот формат читает фронт.
+/// По умолчанию actix отвечает простым текстом, и пользователь видел лишь общее
+/// «Ошибка сохранения» без причины.
+fn json_config() -> web::JsonConfig {
+    web::JsonConfig::default().error_handler(|err, _req| {
+        let message = format!("Некорректные данные запроса: {}", err);
+        log::warn!("{}", message);
+        actix_web::error::InternalError::from_response(
+            err,
+            actix_web::HttpResponse::BadRequest().json(serde_json::json!({ "error": message })),
+        )
+        .into()
+    })
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     init_env();
@@ -39,20 +55,15 @@ async fn main() -> std::io::Result<()> {
         eprintln!("Failed to init files directory: {}", e);
     }
     
-    // Initialize the logger
-    let _log_file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .append(true)
-        .open("application.log")
-        .expect("Failed to open log file");
-
+    // Логи идут в stdout → journald (journalctl -u reestr-back).
     SimpleLogger::new()
         .with_level(LevelFilter::Debug)
         .init()
         .expect("Failed to initialize logger");
 
-    info!("Starting server at http://0.0.0.0:8080");
+    // Только loopback: снаружи API доступен через nginx (/api/ → 127.0.0.1:8080),
+    // прямой доступ к :8080 из сети обходил бы его лимиты и логи.
+    info!("Starting server at http://{}", BIND_ADDR);
 
     HttpServer::new(|| {
         let cors = Cors::default()
@@ -62,6 +73,7 @@ async fn main() -> std::io::Result<()> {
             .expose_any_header()
             .max_age(36000);
         App::new()
+            .app_data(json_config())
             .wrap(session_middleware())
             .wrap(cors)
             .wrap(actix_web::middleware::Logger::default()) // Встроенный логгер Actix
@@ -142,7 +154,7 @@ async fn main() -> std::io::Result<()> {
                     )
             )
     })
-        .bind("0.0.0.0:8080")?
+        .bind(BIND_ADDR)?
         .run()
         .await
 }
