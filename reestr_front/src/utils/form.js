@@ -14,15 +14,3 @@ export function normalizePeriod(value) {
   if (!Number.isFinite(n) || n < 0) return null
   return n || 0 // -0 → 0
 }
-
-/**
- * Полная дата «YYYY-MM-DD» с правдоподобным годом. Поле type="date" в Chrome
- * отдаёт промежуточные значения при наборе года («0002-01-01», «0020-01-01»),
- * и считать по ним ничего нельзя — так в реестр и попадали даты вида «0019-…».
- */
-export function isPlausibleDate(value) {
-  const m = /^(\d{4})-\d{2}-\d{2}/.exec(String(value ?? ''))
-  if (!m) return false
-  const year = Number(m[1])
-  return year >= 1900 && year <= 2200
-}

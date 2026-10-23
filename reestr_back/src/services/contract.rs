@@ -7,6 +7,7 @@ use crate::schema::contract;
 use crate::services::contract_history;
 use crate::utils::db::establish_connection;
 use crate::utils::utils::{require_non_empty, require_non_negative};
+use chrono::Datelike;
 use diesel::prelude::*;
 use diesel::sql_query;
 use diesel::sql_types::{BigInt, Integer, Nullable, Numeric, Text, Timestamptz};
@@ -26,6 +27,15 @@ fn validate_contract(
     price: Option<&bigdecimal::BigDecimal>,
 ) -> Result<(), String> {
     require_non_empty(number, "Номер договора")?;
+    // Поле type="date" в браузере при наборе года отдаёт «0019-…»; такие даты
+    // уже приходилось чинить миграцией, поэтому отсекаем их и на сервере.
+    for (date, what) in [(date_from, "начала"), (date_to, "окончания")] {
+        if let Some(d) = date {
+            if !(1900..=2200).contains(&d.year()) {
+                return Err(format!("Неправдоподобный год даты {} договора", what));
+            }
+        }
+    }
     if let (Some(from), Some(to)) = (date_from, date_to) {
         if to < from {
             return Err("Дата окончания договора раньше даты начала".to_string());
@@ -450,4 +460,23 @@ pub async fn summary() -> Result<ContractSummary, String> {
         organizations: row.organizations,
         responsible_persons: row.responsible_persons,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_contract;
+    use chrono::NaiveDate;
+
+    fn at(y: i32, m: u32, d: u32) -> Option<chrono::NaiveDateTime> {
+        NaiveDate::from_ymd_opt(y, m, d).map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+    }
+
+    #[test]
+    fn год_вне_диапазона_и_обратный_порядок_дат_отклоняются() {
+        assert!(validate_contract("1", at(19, 8, 7), None, None, None).is_err());
+        assert!(validate_contract("1", None, at(2215, 3, 12), None, None).is_err());
+        assert!(validate_contract("1", at(2026, 5, 1), at(2026, 4, 1), None, None).is_err());
+        assert!(validate_contract("1", at(2019, 8, 7), at(2020, 8, 7), Some(12), None).is_ok());
+        assert!(validate_contract("1", None, None, None, None).is_ok());
+    }
 }

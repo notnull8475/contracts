@@ -562,7 +562,14 @@
 <script setup>
 import { computed, reactive, ref, toRefs, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts'
-import { blankToNull, isPlausibleDate, normalizePeriod } from '@/utils/form.js'
+import { blankToNull, normalizePeriod } from '@/utils/form.js'
+import {
+  addMonths,
+  calculateContractPeriod,
+  dateValueForPicker,
+  isPlausibleDate,
+  toApiDateTime,
+} from '@/utils/dates.js'
 import { OrganizationUtil } from '@/store/organizations'
 import { SupplementaryAgreementUtil } from '@/store/supplementaryAgreements'
 import { useToastStore } from '@/store/toast'
@@ -710,50 +717,6 @@ const organizationDisplayLabel = computed(() => {
   return orgAutocompleteItems.value.find((o) => o.id === id)?.display ?? ''
 })
 
-/**
- * Значение для <input type="date">: только календарная часть YYYY-MM-DD без конвертации через Date,
- * иначе при строке вида ...T00:00:00 разбор в JS даёт сдвиг (дважды выбрать дату «лечит» только частично).
- */
-function dateValueForPicker(value) {
-  if (value == null || value === '') return ''
-  const s = String(value).trim()
-  const head = s.match(/^(\d{4}-\d{2}-\d{2})/)
-  if (head) return head[1]
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return ''
-  return formatYmdLocal(d)
-}
-
-/** Парсинг даты договора в локальный полдень — только для арифметики месяцев, без UTC-сдвига */
-function parseCalendarDateLocal(value) {
-  if (value == null || value === '') return null
-  const s = String(value).trim()
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (m) {
-    const y = Number(m[1])
-    const mo = Number(m[2])
-    const d = Number(m[3])
-    return new Date(y, mo - 1, d, 12, 0, 0)
-  }
-  const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-function formatYmdLocal(d) {
-  const y = d.getFullYear()
-  const mo = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${mo}-${day}`
-}
-
-/** NaiveDateTime в API ожидается как YYYY-MM-DDTHH:mm:ss */
-function toApiDateTime(ymdOrIso) {
-  if (ymdOrIso == null || ymdOrIso === '') return null
-  const s = String(ymdOrIso).trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T00:00:00`
-  return s
-}
-
 const selectedUploadFile = computed(() => resolveSelectedFile(newFile.value))
 const selectedUploadUpdFile = computed(() => resolveSelectedFile(newUpdFile.value))
 
@@ -770,6 +733,7 @@ const formattedDateFrom = computed({
   },
   set(value) {
     form.date_from = value || null
+    errors.date_from = ''
     // Набор года с клавиатуры даёт «0002-…», «0020-…» — по ним не считаем.
     if (form.date_from && !isPlausibleDate(form.date_from)) return
     // Срок ввели раньше даты начала — теперь из него можно получить дату окончания.
@@ -787,6 +751,7 @@ const formattedDateTo = computed({
   },
   set(value) {
     form.date_to = value || null
+    errors.date_to = ''
     if (form.date_to && !isPlausibleDate(form.date_to)) return
     syncPeriodFromDates()
   },
@@ -805,20 +770,14 @@ function syncPeriodFromDates() {
  */
 function onPeriodInput() {
   const period = normalizePeriod(form.contract_period)
-  if (!period) {
+  // Пустой срок, а также нулевой при двух датах, — срок определяется датами.
+  if (period === null || (period === 0 && form.date_to)) {
     syncPeriodFromDates()
     return
   }
   if (period !== form.contract_period) form.contract_period = period
-  if (!isPlausibleDate(form.date_from)) return
-  const start = parseCalendarDateLocal(form.date_from)
-  if (!start) return
-  const origDay = start.getDate()
-  start.setMonth(start.getMonth() + period)
-  if (start.getDate() < origDay) {
-    start.setDate(0)
-  }
-  form.date_to = formatYmdLocal(start)
+  if (!period || !isPlausibleDate(form.date_from)) return
+  form.date_to = addMonths(form.date_from, period)
 }
 
 /** Enter в поле срока: сначала применить срок, потом сохранить. */
@@ -844,12 +803,8 @@ watch(
     // того же срока записывал бы ту же дату в другом виде, делая форму «изменённой».
     form.date_from = dateValueForPicker(form.date_from) || null
     form.date_to = dateValueForPicker(form.date_to) || null
-    // Импорт из Excel мог дать срок, не совпадающий с датами; показываем и
-    // сохраняем срок по датам — так он определён в форме («Считается по датам»).
-    if (form.date_from && form.date_to) {
-      form.contract_period =
-        calculateContractPeriod(form.date_from, form.date_to) ?? form.contract_period
-    }
+    // Срок показываем как в БД, даже если он не сходится с датами (импорт):
+    // иначе список и карточка показывали бы разные числа без единой правки.
 
     newFile.value = null
     pendingFiles.value = []
@@ -1131,21 +1086,6 @@ async function saveQuickOrganization() {
   }
 }
 
-function calculateContractPeriod(fromDate, toDate) {
-  if (!fromDate || !toDate) return null
-
-  const start = parseCalendarDateLocal(fromDate)
-  const end = parseCalendarDateLocal(toDate)
-  if (!start || !end || end < start) return null
-
-  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
-  if (end.getDate() < start.getDate()) {
-    months -= 1
-  }
-
-  return Math.max(months, 0)
-}
-
 async function downloadFile(fileId) {
   try {
     await contractStore.downloadFile(fileId)
@@ -1181,6 +1121,11 @@ function validate() {
   const yearError = (d) => (d && !isPlausibleDate(d) ? 'Проверьте год даты' : '')
   errors.date_from = yearError(form.date_from)
   errors.date_to = yearError(form.date_to)
+  if (!errors.date_from && !errors.date_to && form.date_from && form.date_to) {
+    if (dateValueForPicker(form.date_to) < dateValueForPicker(form.date_from)) {
+      errors.date_to = 'Дата окончания раньше даты начала'
+    }
+  }
   return !errors.number && !errors.organization_id && !errors.date_from && !errors.date_to
 }
 

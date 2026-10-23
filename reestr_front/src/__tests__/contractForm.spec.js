@@ -351,7 +351,7 @@ describe('ContractForm — защита введённых данных', () => 
     wrapper.unmount()
   })
 
-  it('очищенная дата начала обнуляет срок, а срок из импорта сверяется с датами', async () => {
+  it('срок из БД показывается как есть, очищенная дата начала его обнуляет', async () => {
     const wrapper = mountForm({
       contract: {
         id: 486,
@@ -359,16 +359,55 @@ describe('ContractForm — защита введённых данных', () => 
         organization_id: 7,
         date_from: '2018-03-23T00:00:00',
         date_to: '2025-08-13T00:00:00',
-        contract_period: 90, // в Excel было не то, что по датам
+        contract_period: 90, // в Excel было не то, что по датам — как в списке
       },
     })
     await wrapper.vm.$nextTick()
-    expect(wrapper.vm.form.contract_period).toBe(88)
+    expect(wrapper.vm.form.contract_period).toBe(90)
 
     wrapper.vm.formattedDateFrom = ''
     await wrapper.vm.$nextTick()
     expect(wrapper.vm.form.contract_period).toBeNull()
     expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    wrapper.unmount()
+  })
+
+  it('нулевой срок без даты окончания сохраняется, с датой окончания — считается по датам', async () => {
+    const wrapper = mountForm()
+    wrapper.vm.form.number = 'Д-2026/006'
+    wrapper.vm.form.organization_id = 7
+    wrapper.vm.formattedDateFrom = '2026-01-01'
+    await wrapper.vm.$nextTick()
+
+    await enterPeriod(wrapper, '0')
+    expect(wrapper.vm.form.contract_period).toBe(0)
+    expect(wrapper.vm.form.date_to).toBeNull()
+    wrapper.vm.save()
+    expect(wrapper.emitted('save')[0][0].contract.contract_period).toBe(0)
+
+    wrapper.vm.formattedDateTo = '2027-01-01'
+    await wrapper.vm.$nextTick()
+    await enterPeriod(wrapper, '0')
+    expect(wrapper.vm.form.contract_period).toBe(12)
+    wrapper.unmount()
+  })
+
+  it('дата окончания раньше начала не сохраняется, ошибка снимается после правки', async () => {
+    const wrapper = mountForm()
+    wrapper.vm.form.number = 'Д-2026/007'
+    wrapper.vm.form.organization_id = 7
+    wrapper.vm.formattedDateFrom = '2026-05-01'
+    wrapper.vm.formattedDateTo = '2026-04-01'
+    await wrapper.vm.$nextTick()
+
+    wrapper.vm.save()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('save')).toBeUndefined()
+    expect(document.body.textContent).toContain('Дата окончания раньше даты начала')
+
+    wrapper.vm.formattedDateTo = '2026-06-01'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.errors.date_to).toBe('')
     wrapper.unmount()
   })
 
