@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 actix-cors = "0.7.1"
-actix-session = { version = "0.10.1", features = ["cookie-session"] }
 actix-web = "4.11.0"
 bcrypt = "0.17.0"
 diesel = { version = "2.2.12", features = ["postgres_backend", "postgres", "chrono", "serde_json", "numeric"] }
@@ -13,7 +12,6 @@ dotenv = "0.15.0"
 jsonwebtoken = "9.3.1"
 log = "0.4.27"
 serde = { version = "1.0.219", features = ["derive"] }
-sha2 = "0.10"
 futures-util = "0.3.31"
 chrono = { version = "0.4", features = ["serde"] }
 simple_logger = "5.0.0"

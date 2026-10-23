@@ -145,6 +145,31 @@ describe('ContractForm — защита введённых данных', () => 
     wrapper.unmount()
   })
 
+  it('открытый из списка договор с датами и сроком не считается изменённым', async () => {
+    // Регресс: watcher по сроку переписывал date_to из «…T00:00:00» в «YYYY-MM-DD»
+    // уже после снимка формы, и «Отмена» спрашивала про несохранённые изменения.
+    const wrapper = mountForm({
+      contract: {
+        id: 1859,
+        number: 'б/н 2026-04-04',
+        organization_id: 7,
+        date_from: '2026-04-28T00:00:00',
+        date_to: '2028-03-28T00:00:00',
+        contract_period: 23,
+      },
+    })
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    wrapper.vm.requestClose()
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(wrapper.emitted('update:modelValue')[0]).toEqual([false])
+    confirmSpy.mockRestore()
+    wrapper.unmount()
+  })
+
   it('заполненная форма спрашивает подтверждение и не закрывается при отказе', async () => {
     const wrapper = mountForm()
     await wrapper.vm.$nextTick()

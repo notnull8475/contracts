@@ -554,7 +554,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, toRefs, watch } from 'vue'
+import { computed, nextTick, reactive, ref, toRefs, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts'
 import { OrganizationUtil } from '@/store/organizations'
 import { SupplementaryAgreementUtil } from '@/store/supplementaryAgreements'
@@ -791,8 +791,12 @@ watch(
     if (start.getDate() < origDay) {
       start.setDate(0)
     }
+    const nextDateTo = formatYmdLocal(start)
+    // Та же дата — не трогаем поле: иначе «2028-03-28T00:00:00» из API
+    // переписывается в «2028-03-28», и нетронутая форма считается изменённой.
+    if (dateValueForPicker(form.date_to) === nextDateTo) return
     periodChanging.value = true
-    form.date_to = formatYmdLocal(start)
+    form.date_to = nextDateTo
   },
 )
 
@@ -821,7 +825,12 @@ watch(
     errors.number = ''
     errors.organization_id = ''
     duplicateNumberHint.value = ''
+    // Снимок «чистого» состояния — после того, как отработают watcher'ы по датам
+    // и сроку: они могут нормализовать поля, и это не правка пользователя.
     pristineSnapshot.value = JSON.stringify(form)
+    nextTick(() => {
+      pristineSnapshot.value = JSON.stringify(form)
+    })
 
     if (newVal?.id) {
       loadFiles(newVal.id)

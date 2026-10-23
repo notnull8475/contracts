@@ -71,6 +71,20 @@ pub async fn save_file(
     Ok(result.into())
 }
 
+/// Есть ли договор с таким id.
+pub async fn contract_exists(contract_id: i32) -> Result<bool, String> {
+    use crate::schema::contract::dsl as c;
+
+    let conn = &mut establish_connection();
+    c::contract
+        .filter(c::id.eq(contract_id))
+        .select(c::id)
+        .first::<i32>(conn)
+        .optional()
+        .map(|found| found.is_some())
+        .map_err(|e| format!("Failed to check contract: {}", e))
+}
+
 /// Проверяет, что файл привязывается к существующей паре «договор + соглашение»:
 /// для `supplementary` соглашение обязательно и должно принадлежать договору,
 /// для остальных типов соглашения быть не должно.

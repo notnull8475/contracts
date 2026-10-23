@@ -79,6 +79,10 @@ export const ContractUtil = defineStore('contract', {
       const res = await axios.get(`${contractRequest}/paginated`, { params })
       return res.data
     },
+    async getSummary() {
+      const res = await axios.get(`${contractRequest}/summary`)
+      return res.data
+    },
     async getBatchStats() {
       const res = await axios.get(`${contractRequest}/stats`)
       return res.data

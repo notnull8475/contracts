@@ -157,6 +157,8 @@ const tableProps = computed(() => {
     itemsPerPageOptions: props.itemsPerPageOptions ?? [50, 100, 200],
     page: props.serverPage ?? 1,
     sortBy: props.serverSortBy ?? [],
+    // На сервер уходит одна колонка сортировки — вторая стрелка в шапке только путала.
+    multiSort: false,
   }
 })
 

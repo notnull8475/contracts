@@ -91,8 +91,6 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ContractUtil } from '@/store/contracts.js'
-import { OrganizationUtil } from '@/store/organizations.js'
-import { ResponsiblePersonUtil } from '@/store/responsiblePersons.js'
 import { useAuthStore } from '@/store/auth.js'
 
 const loading = ref(false)
@@ -104,28 +102,25 @@ const metrics = reactive({
 })
 
 const contractStore = ContractUtil()
-const organizationStore = OrganizationUtil()
-const responsiblePersonStore = ResponsiblePersonUtil()
 const authStore = useAuthStore()
 
 onMounted(loadDashboard)
 
+/**
+ * Счётчики приходят одним лёгким запросом. Раньше ради четырёх чисел грузились
+ * полные списки договоров и организаций (больше мегабайта), а «актуальные»
+ * считались по несуществующему полю и всегда показывали 0.
+ */
 async function loadDashboard() {
   if (!authStore.token) return
 
   loading.value = true
   try {
-    const [contracts, organizations, responsiblePersons] = await Promise.all([
-      contractStore.getContracts(),
-      organizationStore.getOrganizations(),
-      responsiblePersonStore.getResponsiblePersons(),
-    ])
-
-    const contractRows = Array.isArray(contracts) ? contracts : []
-    metrics.contracts = contractRows.length
-    metrics.activeContracts = contractRows.filter((contract) => contract.actual).length
-    metrics.organizations = Array.isArray(organizations) ? organizations.length : 0
-    metrics.responsiblePersons = Array.isArray(responsiblePersons) ? responsiblePersons.length : 0
+    const summary = await contractStore.getSummary()
+    metrics.contracts = summary.contracts ?? 0
+    metrics.activeContracts = summary.active_contracts ?? 0
+    metrics.organizations = summary.organizations ?? 0
+    metrics.responsiblePersons = summary.responsible_persons ?? 0
   } catch (error) {
     console.error('Ошибка загрузки метрик', error)
   } finally {

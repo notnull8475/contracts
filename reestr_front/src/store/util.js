@@ -38,7 +38,10 @@ export const useRequtil = defineStore('requtil', {
         return response.data
       } catch (error) {
         console.error('Ошибка в makeGetRequest:', error.response?.status, error.message)
-        throw new Error(errorMessage || 'Ошибка при выполнении GET-запроса')
+        // Текст от сервера точнее общего: «Договор не найден» вместо «Ошибка получения».
+        const serverError =
+          error.response?.data?.error || errorMessage || 'Ошибка при выполнении GET-запроса'
+        throw new Error(serverError)
       }
     },
 

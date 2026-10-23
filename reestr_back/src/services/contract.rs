@@ -1,20 +1,59 @@
 use crate::models::contract_history_models::ContractHistoryDTO;
-use crate::models::contract_models::{Contract, ContractDTO, ContractListDTO, ContractListParams, ContractStatsResponse, PaginatedContractsResponse};
+use crate::models::contract_models::{
+    Contract, ContractDTO, ContractListDTO, ContractListParams, ContractStatsResponse,
+    ContractSummary, PaginatedContractsResponse,
+};
 use crate::schema::contract;
+use crate::services::contract_history;
 use crate::utils::db::establish_connection;
+use crate::utils::utils::{require_non_empty, require_non_negative};
 use diesel::prelude::*;
 use diesel::sql_query;
 use diesel::sql_types::{BigInt, Integer, Nullable, Numeric, Text, Timestamptz};
 use diesel::{QueryDsl, RunQueryDsl};
 use std::collections::HashMap;
 
-pub async fn add_contract(contract: ContractDTO) -> Result<Contract, String> {
+/// Общие проверки для добавления и обновления договора.
+///
+/// Форма проверяет то же самое, но API доступен любому клиенту с токеном —
+/// без проверки на сервере в реестр попадали договоры с пустым номером,
+/// датой окончания раньше начала и отрицательной ценой.
+fn validate_contract(
+    number: &str,
+    date_from: Option<NaiveDateTime>,
+    date_to: Option<NaiveDateTime>,
+    contract_period: Option<i32>,
+    price: Option<&bigdecimal::BigDecimal>,
+) -> Result<(), String> {
+    require_non_empty(number, "Номер договора")?;
+    if let (Some(from), Some(to)) = (date_from, date_to) {
+        if to < from {
+            return Err("Дата окончания договора раньше даты начала".to_string());
+        }
+    }
+    if let Some(period) = contract_period {
+        if period < 0 {
+            return Err("Срок действия договора не может быть отрицательным".to_string());
+        }
+    }
+    require_non_negative(price, "Цена договора")
+}
+
+pub async fn add_contract(mut contract: ContractDTO) -> Result<Contract, String> {
+    validate_contract(
+        &contract.number,
+        contract.date_from,
+        contract.date_to,
+        contract.contract_period,
+        contract.price.as_ref(),
+    )?;
+    contract.number = contract.number.trim().to_string();
+
     let connection = &mut establish_connection();
-    let result = diesel::insert_into(contract::table)
+    diesel::insert_into(contract::table)
         .values(contract)
         .get_result(connection)
-        .map_err(|e| format!("Error to add contract: {}", e.to_string()));
-    result
+        .map_err(|e| format!("Error to add contract: {}", e))
 }
 
 pub async fn remove_contract(contract_id: i32) -> Result<usize, String> {
@@ -37,6 +76,15 @@ pub async fn remove_contract(contract_id: i32) -> Result<usize, String> {
 }
 
 pub async fn update_contract(mut contract: Contract) -> Result<Contract, String> {
+    validate_contract(
+        &contract.number,
+        contract.date_from,
+        contract.date_to,
+        contract.contract_period,
+        contract.price.as_ref(),
+    )?;
+    contract.number = contract.number.trim().to_string();
+
     let connection = &mut establish_connection();
 
     let old: Contract = contract::table
@@ -59,15 +107,16 @@ pub async fn update_contract(mut contract: Contract) -> Result<Contract, String>
         // В истории пишем названия статусов, а не идентификаторы — их читает человек.
         let old_status = status_label(connection, old.contract_status_id);
         let new_status = status_label(connection, contract.contract_status_id);
-        let _ = diesel::insert_into(crate::schema::contract_history::table)
-            .values(&ContractHistoryDTO {
+        contract_history::record(
+            connection,
+            &ContractHistoryDTO {
                 contract_id: contract.id,
                 action: "status_changed".to_string(),
                 old_value: Some(old_status.clone()),
                 new_value: Some(new_status.clone()),
                 description: Some(format!("{} → {}", old_status, new_status)),
-            })
-            .execute(connection);
+            },
+        );
     }
 
     Ok(result)
@@ -208,15 +257,28 @@ pub async fn list_contract_paginated(params: ContractListParams) -> Result<Pagin
         format!("WHERE {}", conditions.join(" AND "))
     };
 
-    // Sort — только из whitelist
+    // Sort — только из whitelist. Ссылочные колонки сортируем по названию,
+    // а не по id: в таблице видны название организации, статуса, типа и
+    // фамилия ответственного, и пользователь ждёт алфавитный порядок.
     let sort_col = match params.sort_by.as_deref() {
         Some("date_from") => "date_from",
         Some("date_to") => "date_to",
         Some("number") => "number",
         Some("price") => "price",
-        Some("contract_status_id") => "contract_status_id",
-        Some("organization_id") => "organization_id",
+        Some("contract_period") => "contract_period",
         Some("id") => "id",
+        Some("contract_status_id") => {
+            "(SELECT s.name FROM dict_contract_status s WHERE s.id = contract.contract_status_id)"
+        }
+        Some("organization_id") => {
+            "(SELECT o.short_name_with_opf FROM organization o WHERE o.id = contract.organization_id)"
+        }
+        Some("type_of_validity") => {
+            "(SELECT t.name FROM dict_type_of_validity t WHERE t.id = contract.type_of_validity)"
+        }
+        Some("responsible_person_id") => {
+            "(SELECT p.lastname FROM responsible_person p WHERE p.id = contract.responsible_person_id)"
+        }
         _ => "date_from",
     };
     let sort_order = match params.sort_order.as_deref() {
@@ -341,5 +403,51 @@ pub async fn batch_stats() -> Result<ContractStatsResponse, String> {
         files: files_map,
         upd: upd_map,
         supplementary: sa_map,
+    })
+}
+
+// =============================================================================
+// Сводка для главной страницы
+// =============================================================================
+
+#[derive(QueryableByName)]
+struct SummaryRow {
+    #[diesel(sql_type = BigInt)]
+    contracts: i64,
+    #[diesel(sql_type = BigInt)]
+    active_contracts: i64,
+    #[diesel(sql_type = BigInt)]
+    organizations: i64,
+    #[diesel(sql_type = BigInt)]
+    responsible_persons: i64,
+}
+
+/// Счётчики для главной страницы одним запросом.
+///
+/// Раньше главная тянула полный список договоров и организаций (больше мегабайта)
+/// только ради `length`, а «актуальные» считала по несуществующему полю и всегда
+/// показывала 0. Актуальный договор — не расторгнутый и с датой окончания
+/// в будущем либо без неё.
+pub async fn summary() -> Result<ContractSummary, String> {
+    let conn = &mut establish_connection();
+    let row: SummaryRow = sql_query(
+        "SELECT \
+            (SELECT COUNT(*) FROM contract) AS contracts, \
+            (SELECT COUNT(*) FROM contract c \
+                WHERE (c.date_to IS NULL OR c.date_to >= CURRENT_DATE) \
+                  AND NOT EXISTS (SELECT 1 FROM dict_contract_status s \
+                                  WHERE s.id = c.contract_status_id \
+                                    AND s.name ILIKE 'расторгнут%')) AS active_contracts, \
+            (SELECT COUNT(*) FROM organization) AS organizations, \
+            (SELECT COUNT(*) FROM responsible_person) AS responsible_persons",
+    )
+    .get_result(conn)
+    .map_err(|e| format!("Error building summary: {}", e))?;
+
+    Ok(ContractSummary {
+        contracts: row.contracts,
+        active_contracts: row.active_contracts,
+        organizations: row.organizations,
+        responsible_persons: row.responsible_persons,
     })
 }

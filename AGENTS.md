@@ -7,7 +7,7 @@
 Монорепозиторий из трёх частей:
 
 - **`reestr_front/`** — одностраничное приложение (SPA) на Vue 3 + Vite. Чистый JavaScript, TypeScript не используется. Стили — Tailwind CSS 4 + Vuetify 3. Состояние — Pinia.
-- **`reestr_back/`** — HTTP API на Rust (edition 2024) + Actix-web 4.11. Доступ к PostgreSQL через Diesel ORM. Аутентификация — JWT + cookie-сессия Actix.
+- **`reestr_back/`** — HTTP API на Rust (edition 2024) + Actix-web 4.11. Доступ к PostgreSQL через Diesel ORM. Аутентификация — JWT в заголовке Authorization.
 - **`infra/`** — скрипты и конфиги для развёртывания на сервере через `git push`. Подробности в `infra/README.md`.
 
 Приложение — реестр договоров с организациями, ответственными лицами, статусами, дополнительными соглашениями, историей изменений статусов, загрузкой файлов и импортом из Excel.
@@ -30,9 +30,9 @@
 
 - **Язык:** Rust, edition 2024
 - **Веб-фреймворк:** actix-web 4.11
-- **CORS / сессии:** actix-cors 0.7, actix-session 0.10 (cookie-session)
+- **CORS:** actix-cors 0.7
 - **БД:** PostgreSQL, Diesel ORM 2.2 с фичами `postgres`, `chrono`, `serde_json`, `numeric`
-- **Аутентификация:** jsonwebtoken 9.3, bcrypt 0.17, sha2
+- **Аутентификация:** jsonwebtoken 9.3, bcrypt 0.17
 - **Логирование:** log + simple_logger 5
 - **HTTP-клиент для DaData:** reqwest 0.12
 - **Прочее:** chrono, once_cell, uuid, actix-multipart, bigdecimal, calamine (импорт Excel), encoding_rs, futures-util, serde_json
@@ -64,7 +64,8 @@
 │       ├── layouts/AppLayout.vue
 │       ├── composables/useNotify.js
 │       ├── plugins/vuetify.js, plugins/markdown.js
-│       └── smoke.spec.js     ← единственный тест
+│       ├── smoke.spec.js     ← дымовой тест
+│       └── __tests__/contractForm.spec.js ← тесты формы договора
 ├── reestr_back/
 │   ├── Cargo.toml
 │   ├── Cargo.lock
@@ -87,7 +88,9 @@
     ├── systemd/reestr-back.service
     ├── nginx/reestr.conf
     ├── journald/reestr.conf      ← лимит журнала 200M
-    └── tools/cleanup_orphan_files.sh ← удаление файлов без записи в БД
+    └── tools/
+        ├── cleanup_orphan_files.sh      ← удаление файлов без записи в БД
+        └── suggest_inn.py               ← подбор настоящих ИНН через DaData для организаций с фиктивным 9000000xxx (CSV на проверку, в БД не пишет)
 ```
 
 ## 4. Переменные окружения
@@ -97,7 +100,7 @@
 | Переменная | Назначение |
 |------------|-----------|
 | `DATABASE_URL` | Строка подключения к PostgreSQL, например `postgres://USER:PASSWORD@localhost:5432/reestrdogovorov` |
-| `JWT_SECRET` | Секрет для подписи JWT и производных ключей. Проверяется `assert!(s.len() >= 32)` при старте. При смене все выданные токены и cookie-сессии станут недействительны |
+| `JWT_SECRET` | Секрет для подписи JWT. Проверяется `assert!(s.len() >= 32)` при старте. При смене все выданные токены станут недействительны |
 | `DADATAAPIKEY` | API-ключ DaData (`https://suggestions.dadata.ru`) для автозаполнения организации по ИНН |
 
 При первом запуске, если в БД нет пользователя с ролью `admin`, бэкенд автоматически создаёт пользователя `admin`/`admin` (`src/utils/create_admin_user.rs`). Смените пароль.
@@ -182,18 +185,13 @@ diesel print-schema              # перегенерировать src/schema.r
 - Бэкенд слушает `127.0.0.1:8080` — снаружи доступен только через nginx.
 - Ошибки разбора JSON возвращаются как `400 {"error": "..."}` (`json_config()` в `main.rs`).
 
-### Аутентификация двойная
+### Аутентификация — JWT
 
-1. **JWT:**
-   - `POST /api/v1/login` возвращает `{ "token": "..." }`.
-   - Фронтенд сохраняет токен в `localStorage` и отправляет в заголовке `Authorization: Bearer <token>` (`src/store/auth.js`, `src/axios.js`).
-   - Срок жизни токена — 24 часа (`src/auth/auth.rs`).
-   - Защищённые обработчики вызывают `auth::verify_and_extract_claims(&req)`.
-
-2. **Cookie-сессия Actix:**
-   - Имя куки: `image-cookie`.
-   - Настройки: `cookie_secure(false)`, `SameSite::Strict`, `HttpOnly`, `CookieContentSecurity::Private`.
-   - Ключ шифрования куки производится от `JWT_SECRET` через SHA512 (`src/auth/auth.rs::cookie_session_key`).
+- `POST /api/v1/login` возвращает `{ "token": "..." }`.
+- Фронтенд сохраняет токен в `localStorage` и отправляет в заголовке `Authorization: Bearer <token>` (`src/store/auth.js`, `src/axios.js`).
+- Срок жизни токена — 24 часа (`src/auth/auth.rs`). Роль и признак активности при каждом запросе сверяются с БД.
+- Защищённые обработчики вызывают `auth::verify_and_extract_claims(&req)`.
+- Cookie-сессии нет: раньше подключался actix-session (`image-cookie`), но ни один обработчик его не использовал, и middleware удалён.
 
 ### Роли
 
@@ -205,7 +203,13 @@ diesel print-schema              # перегенерировать src/schema.r
 
 ### Важная деталь фронтенда
 
-В `src/router/index.js` есть guard `requiresManager`, который сравнивает роль со строкой `'manager'`. Бэкенд такую роль не возвращает (он возвращает `moderator`), и сейчас ни один маршрут не использует `requiresManager`. Это потенциальное рассогласование — имейте в виду при добавлении ролевых проверок.
+В `src/router/index.js` есть guard `requiresModerator` (пускает `admin` и `moderator`), но сейчас ни один маршрут его не использует. Роли сверяйте с `src/auth/roles.rs`.
+
+### Валидация на бэкенде
+
+Сервисы проверяют входные данные независимо от формы (API доступен любому клиенту с токеном): непустой номер договора, дата окончания не раньше начала, неотрицательные цена и срок, непустое название организации и ИНН из 10 или 12 цифр, хотя бы одно заполненное поле ФИО ответственного. Загрузка файлов принимает только поле формы `file` с именем файла и отвечает 404, если договора нет.
+
+`GET /api/v1/contracts/summary` отдаёт счётчики для главной страницы (договоры, актуальные, организации, ответственные). Актуальный договор — не расторгнутый и с датой окончания в будущем либо без неё.
 
 ## 8. База данных
 
@@ -242,6 +246,7 @@ cargo run --bin import -- --file "../Реестр.xlsx" --dry-run
 - Читает `.xlsx` через `calamine`.
 - Создаёт или находит организации и ответственных лиц.
 - Лист с названием `Лист3` считается закрытыми договорами и получает `contract_status_id = 4`.
+- Известные дефекты импортированных данных: 1367 из 1368 организаций получили фиктивные ИНН `9000000xxx` (настоящих в Excel не было), часть договоров висит на организации-заглушке «Не указано», в ответственных лицах — опечатки и комментарии вместо фамилий. Что восстанавливалось однозначно, исправлено миграциями от 2026-10-22: даты вида `0019-…` (`fix_import_years`), опечатки и комментарии в ответственных лицах (`merge_responsible_persons`), три договора с заглушки на организации с тем же адресом (`fix_placeholder_organizations`). Фиктивные ИНН автоматически не подбираются: `infra/tools/suggest_inn.py` даёт CSV с кандидатами из DaData, выбор делает человек.
 - Лист `Доп соглашения  к лиц договору` пропускается.
 - При дублировании номера договору добавляется пометка `(дубл)`.
 
@@ -251,12 +256,15 @@ cargo run --bin import -- --file "../Реестр.xlsx" --dry-run
 
 - Функции/переменные — `snake_case`, типы — `PascalCase`.
 - Сервисы возвращают `Result<T, String>` с описательной ошибкой через `.map_err(|e| format!("...: {}", e))`.
-- Большинство хендлеров оборачивают результат в `response_fn()` (`src/utils/utils.rs`):
+- Большинство хендлеров оборачивают результат в `response_fn()` (`src/utils/utils.rs`), которая разбирает текст ошибки Diesel (`error_response`):
   - успех → `200 OK` + JSON;
-  - ошибки с подстроками `foreign key`, `violates`, `is still referenced` → `409 Conflict` с фиксированным сообщением об использовании в связанных данных;
+  - удаление записи, на которую есть ссылки (`is still referenced`, `update or delete … foreign key`) → `409 Conflict`;
+  - вставка/обновление со ссылкой на несуществующую запись (`insert or update … foreign key`) → `400` с названием поля (организация, статус, договор…);
+  - `duplicate key` → `409`; `Record not found` → `404`;
   - остальные ошибки → `400 Bad Request` + JSON `{"error": "..."}`.
+- Запись в историю договора — через `services::contract_history::record(conn, &dto)`; ошибки логируются, основную операцию не откатывают.
 - Исключение: `src/handlers/users.rs` и некоторые админ-обработчики не используют `response_fn` и возвращают текстовые тела, а ошибки `.expect` приводят к панике.
-- Модуля `middleware/` нет; middleware (CORS, логгер, сессия) подключаются инлайн в `src/main.rs`.
+- Модуля `middleware/` нет; middleware (CORS, логгер) подключаются инлайн в `src/main.rs`.
 
 ### Фронтенд
 
@@ -269,8 +277,8 @@ cargo run --bin import -- --file "../Реестр.xlsx" --dry-run
 
 ## 12. Тестирование
 
-- **Фронтенд:** Vitest. Сейчас есть только дымовой тест `src/smoke.spec.js`.
-- **Бэкенд:** есть юнит-тесты (`contract_files_handler.rs`, `utils/utils.rs`), интеграционных нет. `cargo test --no-run` — компиляция без запуска.
+- **Фронтенд:** Vitest. `src/smoke.spec.js` и `src/__tests__/contractForm.spec.js` (обязательные поля, защита от потери данных, сброс состояния между договорами).
+- **Бэкенд:** юнит-тесты в `contract_files_handler.rs` (имена файлов), `utils/utils.rs` (разбор цены, классификация ошибок БД), `services/organization.rs` (ИНН); интеграционных нет. `cargo test --no-run` — компиляция без запуска.
 - Проверки качества: `npm run format` (Prettier) + `cargo fmt`.
 
 ## 13. Безопасность и важные замечания
@@ -278,7 +286,7 @@ cargo run --bin import -- --file "../Реестр.xlsx" --dry-run
 - `.env` и реальные секреты не должны попадать в git (см. `.gitignore`).
 - `JWT_SECRET` должен быть не короче 32 символов; иначе сервер падает на старте.
 - Пароли хешируются через bcrypt.
-- Cookie-сессия шифруется, имеет флаг `HttpOnly` и `SameSite=Strict`, но `cookie_secure(false)` — в production желательно включить HTTPS и перевести в `true`.
+- Токен хранится в `localStorage` и передаётся заголовком; в production желательно включить HTTPS, чтобы он не ходил открытым текстом.
 - CORS настроен крайне разрешительно (`allow_any_origin`, `allow_any_method`, `allow_any_header`); снаружи бэкенд закрыт привязкой к 127.0.0.1.
 - DaData-запросы выполняются с ключом `DADATAAPIKEY` и внешним вызовом на `suggestions.dadata.ru`.
 - Админ-эндпоинты защищены ролью `admin`; остальные защищённые эндпоинты требуют только валидный JWT. Если появится необходимость разграничивать `moderator`/`user`, потребуется дополнительная проверка.

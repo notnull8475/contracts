@@ -2,10 +2,18 @@ use crate::auth::auth;
 use crate::models::contract_models::{Contract, ContractDTO, ContractListParams};
 use crate::services::contract::{
     add_contract, batch_stats, get_contract, list_contract, list_contract_paginated,
-    remove_contract, update_contract,
+    remove_contract, summary, update_contract,
 };
 use crate::utils::utils::response_fn;
 use actix_web::{Error, HttpRequest, HttpResponse, web};
+
+/// Счётчики для главной страницы
+pub async fn summary_req(req: HttpRequest) -> Result<HttpResponse, Error> {
+    if let Err(response) = auth::verify_and_extract_claims(&req) {
+        return Ok(response);
+    }
+    response_fn(summary().await)
+}
 
 pub async fn add_contract_req(
     req: HttpRequest,

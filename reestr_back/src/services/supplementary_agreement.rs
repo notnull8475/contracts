@@ -4,7 +4,9 @@ use crate::models::supplementary_agreement_models::{
 };
 use crate::schema::contract::dsl as contract_dsl;
 use crate::schema::supplementary_agreement::dsl::*;
+use crate::services::contract_history::record;
 use crate::utils::db::establish_connection;
+use crate::utils::utils::require_non_negative;
 use diesel::prelude::*;
 
 pub async fn list_by_contract(cid: i32) -> Result<Vec<SupplementaryAgreement>, String> {
@@ -17,6 +19,7 @@ pub async fn list_by_contract(cid: i32) -> Result<Vec<SupplementaryAgreement>, S
 }
 
 pub async fn add(dto: SupplementaryAgreementDTO) -> Result<SupplementaryAgreement, String> {
+    require_non_negative(dto.price.as_ref(), "Цена доп. соглашения")?;
     let conn = &mut establish_connection();
 
     let result = diesel::insert_into(supplementary_agreement)
@@ -29,15 +32,16 @@ pub async fn add(dto: SupplementaryAgreementDTO) -> Result<SupplementaryAgreemen
         .map(|d| d.format("%d.%m.%Y").to_string())
         .unwrap_or_else(|| "без даты".to_string());
 
-    let _ = diesel::insert_into(crate::schema::contract_history::table)
-        .values(&ContractHistoryDTO {
+    record(
+        conn,
+        &ContractHistoryDTO {
             contract_id: dto.contract_id,
             action: "sa_added".to_string(),
             old_value: None,
             new_value: Some(format!("№{} от {}", sa_num, sa_date)),
             description: dto.description.clone(),
-        })
-        .execute(conn);
+        },
+    );
 
     if let Some(ref new_price) = dto.price {
         let price_str = new_price.to_string();
@@ -45,21 +49,23 @@ pub async fn add(dto: SupplementaryAgreementDTO) -> Result<SupplementaryAgreemen
             .set(contract_dsl::price.eq(new_price))
             .execute(conn);
 
-        let _ = diesel::insert_into(crate::schema::contract_history::table)
-            .values(&ContractHistoryDTO {
+        record(
+            conn,
+            &ContractHistoryDTO {
                 contract_id: dto.contract_id,
                 action: "price_changed".to_string(),
                 old_value: None,
                 new_value: Some(price_str),
                 description: Some("Цена изменена из доп. соглашения".to_string()),
-            })
-            .execute(conn);
+            },
+        );
     }
 
     Ok(result)
 }
 
 pub async fn update(mut dto: SupplementaryAgreementUpdateDTO) -> Result<SupplementaryAgreement, String> {
+    require_non_negative(dto.price.as_ref(), "Цена доп. соглашения")?;
     let conn = &mut establish_connection();
 
     let old: SupplementaryAgreement = supplementary_agreement
@@ -103,28 +109,30 @@ pub async fn update(mut dto: SupplementaryAgreementUpdateDTO) -> Result<Suppleme
                 .set(contract_dsl::price.eq(np))
                 .execute(conn);
 
-            let _ = diesel::insert_into(crate::schema::contract_history::table)
-                .values(&ContractHistoryDTO {
+            record(
+                conn,
+                &ContractHistoryDTO {
                     contract_id: old.contract_id,
                     action: "price_changed".to_string(),
                     old_value: Some(old_price),
                     new_value: Some(np.to_string()),
                     description: Some("Цена изменена из доп. соглашения".to_string()),
-                })
-                .execute(conn);
+                },
+            );
         }
     }
 
     if !changes.is_empty() {
-        let _ = diesel::insert_into(crate::schema::contract_history::table)
-            .values(&ContractHistoryDTO {
+        record(
+            conn,
+            &ContractHistoryDTO {
                 contract_id: old.contract_id,
                 action: "sa_updated".to_string(),
                 old_value: None,
                 new_value: Some(format!("№{} от {}", sa_num, sa_date)),
                 description: Some(changes.join("; ")),
-            })
-            .execute(conn);
+            },
+        );
     }
 
     Ok(result)
@@ -157,15 +165,16 @@ pub async fn remove(sid: i32) -> Result<usize, String> {
 
     crate::services::contract_files::remove_stored_files(&stored_files);
 
-    let _ = diesel::insert_into(crate::schema::contract_history::table)
-        .values(&ContractHistoryDTO {
+    record(
+        conn,
+        &ContractHistoryDTO {
             contract_id: old.contract_id,
             action: "sa_deleted".to_string(),
             old_value: Some(sa_info),
             new_value: None,
             description: old.description,
-        })
-        .execute(conn);
+        },
+    );
 
     Ok(result)
 }

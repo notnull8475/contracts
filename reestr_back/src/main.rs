@@ -6,29 +6,16 @@ mod schema;
 mod services;
 mod utils;
 
-use crate::auth::auth::cookie_session_key;
 use crate::conf::conf::init_env;
 use crate::services::contract_files;
 use crate::utils::create_admin_user::create_admin_user_if_need;
 use actix_cors::Cors;
-use actix_session::config::{BrowserSession, CookieContentSecurity};
-use actix_session::storage::CookieSessionStore;
-use actix_session::SessionMiddleware;
-use actix_web::cookie::SameSite;
 use actix_web::{web, App, HttpServer};
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
 
-fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
-    SessionMiddleware::builder(CookieSessionStore::default(), cookie_session_key())
-        .cookie_name(String::from("image-cookie")) // arbitrary name
-        .cookie_secure(false) // https only
-        .session_lifecycle(BrowserSession::default()) // expire at end of session
-        .cookie_same_site(SameSite::Strict)
-        .cookie_content_security(CookieContentSecurity::Private) // encrypt
-        .cookie_http_only(true) // disallow scripts from reading
-        .build()
-}
+// Аутентификация только по JWT в заголовке Authorization: cookie-сессия actix
+// (`image-cookie`) ни одним обработчиком не читалась и была удалена.
 const BIND_ADDR: &str = "127.0.0.1:8080";
 
 /// Ошибки разбора JSON отдаём как `{"error": "..."}` — этот формат читает фронт.
@@ -74,7 +61,6 @@ async fn main() -> std::io::Result<()> {
             .max_age(36000);
         App::new()
             .app_data(json_config())
-            .wrap(session_middleware())
             .wrap(cors)
             .wrap(actix_web::middleware::Logger::default()) // Встроенный логгер Actix
             .service(
@@ -122,6 +108,7 @@ async fn main() -> std::io::Result<()> {
                             .route("/list", web::get().to(handlers::contracts_handler::list_contract_req))
                             .route("/paginated", web::get().to(handlers::contracts_handler::list_paginated_req))
                             .route("/stats", web::get().to(handlers::contracts_handler::batch_stats_req))
+                            .route("/summary", web::get().to(handlers::contracts_handler::summary_req))
                             .route("/get/{id}", web::get().to(handlers::contracts_handler::get_contract_req))
                             .route("/files/{contract_id}", web::post().to(handlers::contract_files_handler::upload_file))
                             .route("/files/{contract_id}", web::get().to(handlers::contract_files_handler::get_contract_files))

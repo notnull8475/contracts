@@ -82,6 +82,15 @@ pub struct ContractStatsResponse {
     pub supplementary: std::collections::HashMap<i32, i64>,
 }
 
+/// Сводка для главной страницы
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ContractSummary {
+    pub contracts: i64,
+    pub active_contracts: i64,
+    pub organizations: i64,
+    pub responsible_persons: i64,
+}
+
 /// Параметры фильтрации для списка договоров
 #[derive(Deserialize, Debug)]
 pub struct ContractListParams {

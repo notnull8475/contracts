@@ -22,8 +22,11 @@ fn default_file_type() -> String {
 }
 
 /// Предел размера загружаемого файла. Совпадает с `client_max_body_size` в nginx,
-/// но проверяется и здесь: бэкенд слушает 0.0.0.0:8080 и доступен напрямую.
+/// но проверяется и здесь: в dev-режиме фронт ходит на бэкенд напрямую, минуя nginx.
 const MAX_UPLOAD_BYTES: usize = 50 * 1024 * 1024;
+
+/// Имя поля формы, в котором приходит файл (`FormData.append('file', …)` на фронте).
+const FILE_FIELD: &str = "file";
 
 /// Разрешённые значения `file_type` — иначе в БД попадёт мусор,
 /// который не найдут ни счётчики, ни списки файлов.
@@ -49,6 +52,18 @@ pub async fn upload_file(
         })));
     }
 
+    // Иначе файл запишется на диск, а вставка в БД упадёт по внешнему ключу.
+    match file_service::contract_exists(contract_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return Ok(HttpResponse::NotFound()
+                .json(serde_json::json!({ "error": "Договор не найден" })));
+        }
+        Err(e) => {
+            return Ok(HttpResponse::InternalServerError().json(serde_json::json!({ "error": e })));
+        }
+    }
+
     // Файл соглашения без id соглашения (или с чужим соглашением) не виден ни в одном
     // списке и навсегда остаётся на диске — отсекаем такие запросы сразу.
     if let Err(message) = file_service::check_upload_target(contract_id, &ftype, sa_id).await {
@@ -59,10 +74,17 @@ pub async fn upload_file(
         actix_web::error::ErrorBadRequest(e.to_string())
     })? {
         let content_disposition = item.content_disposition();
-        let filename = content_disposition
+
+        // Берём только поле `file` с именем файла: раньше любое текстовое поле формы
+        // сохранялось на диск как файл «unknown».
+        let is_file_field = content_disposition.get_name() == Some(FILE_FIELD);
+        let Some(filename) = content_disposition
             .get_filename()
+            .filter(|_| is_file_field)
             .map(|s| s.to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+        else {
+            continue;
+        };
 
         let mime_type = item
             .content_type()
@@ -97,7 +119,7 @@ pub async fn upload_file(
     }
 
     Ok(HttpResponse::BadRequest().json(serde_json::json!({
-        "error": "No file provided"
+        "error": "Файл не передан: ожидается поле формы «file»"
     })))
 }
 
@@ -206,9 +228,8 @@ pub async fn delete_file(req: HttpRequest, file_id: web::Path<i32>) -> Result<Ht
         Ok(_) => Ok(HttpResponse::Ok().json(serde_json::json!({
             "message": "File deleted"
         }))),
-        Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-            "error": e
-        }))),
+        // Повторное удаление или чужой id — это 404, а не ошибка сервера.
+        Err(e) => Ok(crate::utils::utils::error_response(&e)),
     }
 }
 

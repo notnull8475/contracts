@@ -3,21 +3,10 @@ use crate::conf::conf::JWT_SECRET;
 use crate::models::auth_models::{Claims, User};
 use crate::schema::users;
 use crate::utils::db::establish_connection;
-use actix_web::cookie::Key;
 use actix_web::{HttpRequest, HttpResponse};
 use chrono::{Duration, Utc};
 use diesel::prelude::*;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use sha2::{Digest, Sha512};
-
-pub fn cookie_session_key() -> Key {
-    let mut h = Sha512::new();
-    h.update(b"actix-session-cookie-v1:");
-    h.update(JWT_SECRET.as_bytes());
-    let digest = h.finalize();
-    let arr: [u8; 64] = digest.into();
-    Key::from(&arr)
-}
 
 pub fn create_jwt(user: &User) -> String {
     let expiration = Utc::now() + Duration::hours(24);

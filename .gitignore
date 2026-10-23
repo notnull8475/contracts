@@ -6,3 +6,6 @@ reestr_back/application.log
 reestr_back/.idea/
 reestr_back/.env.*
 reestr_back/dadata.sh
+# Локальные дампы и образцы ответов API
+reestr_back/*.sql
+reestr_back/org.json
