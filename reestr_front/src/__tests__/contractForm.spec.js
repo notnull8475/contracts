@@ -194,10 +194,48 @@ describe('ContractForm — защита введённых данных', () => 
     expect(confirmSpy).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
 
-    // А правка срока пользователем по-прежнему пересчитывает дату окончания.
-    wrapper.vm.form.contract_period = 12
+    // А ввод срока пользователем по-прежнему пересчитывает дату окончания.
+    wrapper.vm.onPeriodInput(12)
     await wrapper.vm.$nextTick()
     expect(wrapper.vm.form.date_to).toBe('2019-03-23')
+    wrapper.unmount()
+  })
+
+  it('введённая дата окончания не заменяется на «начало + срок»', async () => {
+    // Регресс: ввод даты окончания пересчитывал срок (88), а watcher по сроку
+    // тут же переписывал дату на 23.07.2025 — ввести 13.08.2025 было нельзя.
+    const wrapper = mountForm()
+    await wrapper.vm.$nextTick()
+
+    wrapper.vm.formattedDateFrom = '2018-03-23'
+    await wrapper.vm.$nextTick()
+    wrapper.vm.formattedDateTo = '2025-08-13'
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    expect(wrapper.vm.form.contract_period).toBe(88)
+
+    // Сдвиг даты начала пересчитывает срок, но дату окончания не трогает.
+    wrapper.vm.formattedDateFrom = '2018-01-01'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    expect(wrapper.vm.form.contract_period).toBe(91)
+    wrapper.unmount()
+  })
+
+  it('срок, введённый без даты начала, уходит на сервер', async () => {
+    const wrapper = mountForm()
+    wrapper.vm.form.number = 'Д-2026/003'
+    wrapper.vm.form.organization_id = 7
+    wrapper.vm.form.contract_period = 12
+    wrapper.vm.onPeriodInput(12)
+    await wrapper.vm.$nextTick()
+
+    wrapper.vm.save()
+    const payload = wrapper.emitted('save')[0][0].contract
+    expect(payload.contract_period).toBe(12)
+    expect(payload.date_to).toBeNull()
     wrapper.unmount()
   })
 

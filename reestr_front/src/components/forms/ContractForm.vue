@@ -52,6 +52,7 @@
             <v-text-field
               v-model.number="form.contract_period"
               label="Срок действия (мес.)"
+              @update:model-value="onPeriodInput"
               type="number"
               min="0"
               variant="outlined"
@@ -554,7 +555,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref, toRefs, watch } from 'vue'
+import { computed, reactive, ref, toRefs, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts'
 import { OrganizationUtil } from '@/store/organizations'
 import { SupplementaryAgreementUtil } from '@/store/supplementaryAgreements'
@@ -631,11 +632,6 @@ const supplementaryAgreements = ref([])
 const supplementaryFormDialog = ref(false)
 const selectedSupplementary = ref(null)
 const isCustomPrice = ref(false)
-const periodChanging = ref(false)
-// Пока форма заполняется из объекта договора, watcher'ы по датам и сроку
-// молчат: иначе срок из БД пересчитывал дату окончания (23.03.2018 + 88 мес.
-// вместо фактической 13.08.2025), и «Сохранить» молча портил дату.
-const populating = ref(false)
 const historyItems = ref([])
 const historyLoading = ref(false)
 const errors = reactive({ number: '', organization_id: '' })
@@ -755,12 +751,17 @@ function toApiDateTime(ymdOrIso) {
 const selectedUploadFile = computed(() => resolveSelectedFile(newFile.value))
 const selectedUploadUpdFile = computed(() => resolveSelectedFile(newUpdFile.value))
 
+// Срок и даты пересчитываются только от ввода пользователя, а не от изменения
+// состояния: watcher'ы на form.* срабатывали и на заполнение формы из БД, и друг
+// на друга (ввод даты окончания → срок → дата окончания заменялась на
+// «начало + N месяцев»), и «Сохранить» молча портил дату.
 const formattedDateFrom = computed({
   get() {
     return dateValueForPicker(form.date_from)
   },
   set(value) {
     form.date_from = value || null
+    form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
   },
 })
 
@@ -770,41 +771,23 @@ const formattedDateTo = computed({
   },
   set(value) {
     form.date_to = value || null
+    form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
   },
 })
 
-watch(
-  () => [form.date_from, form.date_to],
-  () => {
-    if (populating.value) return
-    if (periodChanging.value) {
-      periodChanging.value = false
-      return
-    }
-    form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
-  },
-)
-
-watch(
-  () => form.contract_period,
-  (period) => {
-    if (populating.value) return
-    if (!form.date_from || !period || period <= 0) return
-    const start = parseCalendarDateLocal(form.date_from)
-    if (!start) return
-    const origDay = start.getDate()
-    start.setMonth(start.getMonth() + Number(period))
-    if (start.getDate() < origDay) {
-      start.setDate(0)
-    }
-    const nextDateTo = formatYmdLocal(start)
-    // Та же дата — не трогаем поле: иначе «2028-03-28T00:00:00» из API
-    // переписывается в «2028-03-28», и нетронутая форма считается изменённой.
-    if (dateValueForPicker(form.date_to) === nextDateTo) return
-    periodChanging.value = true
-    form.date_to = nextDateTo
-  },
-)
+/** Пользователь ввёл срок: дата окончания = дата начала + срок (в месяцах). */
+function onPeriodInput(value) {
+  const period = Number(value)
+  if (!form.date_from || !period || period <= 0) return
+  const start = parseCalendarDateLocal(form.date_from)
+  if (!start) return
+  const origDay = start.getDate()
+  start.setMonth(start.getMonth() + period)
+  if (start.getDate() < origDay) {
+    start.setDate(0)
+  }
+  form.date_to = formatYmdLocal(start)
+}
 
 watch(
   () => contract.value,
@@ -813,7 +796,6 @@ watch(
 
     // Сначала полный сброс на дефолты: приходящий объект может не содержать
     // часть полей, и без сброса в форме остались бы значения прошлого договора.
-    populating.value = true
     Object.assign(form, emptyForm())
     if (newVal) {
       for (const [key, value] of Object.entries(newVal)) {
@@ -833,12 +815,6 @@ watch(
     errors.organization_id = ''
     duplicateNumberHint.value = ''
     pristineSnapshot.value = JSON.stringify(form)
-    // Watcher'ы по датам и сроку срабатывают до nextTick и при populating
-    // выходят сразу; дальше форма реагирует только на правки пользователя.
-    nextTick(() => {
-      populating.value = false
-      pristineSnapshot.value = JSON.stringify(form)
-    })
 
     if (newVal?.id) {
       loadFiles(newVal.id)
@@ -1207,7 +1183,12 @@ function save() {
     number: form.number.trim(),
     date_from: toApiDateTime(form.date_from),
     date_to: toApiDateTime(form.date_to),
-    contract_period: calculateContractPeriod(form.date_from, form.date_to),
+    // По датам, а если их нет — введённый вручную срок (подсказка поля это обещает).
+    contract_period:
+      calculateContractPeriod(form.date_from, form.date_to) ??
+      (form.contract_period === '' || form.contract_period == null
+        ? null
+        : Number(form.contract_period)),
     // Очищенное поле type="number" даёт '' — бэкенд ждёт число или null.
     price: form.price === '' || form.price == null ? null : form.price,
   }
