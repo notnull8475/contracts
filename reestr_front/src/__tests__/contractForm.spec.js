@@ -64,11 +64,9 @@ async function typePeriod(wrapper, value) {
   await wrapper.vm.$nextTick()
 }
 
-/** Ввод срока с фиксацией значения (change), как при уходе из поля. */
+/** Ввод срока с фиксацией значения: setValue в test-utils шлёт input и change. */
 async function enterPeriod(wrapper, value) {
-  const input = periodInput()
-  await input.setValue(value)
-  await input.trigger('change')
+  await periodInput().setValue(value)
   await wrapper.vm.$nextTick()
 }
 
@@ -245,8 +243,12 @@ describe('ContractForm — защита введённых данных', () => 
     await typePeriod(wrapper, '8') // промежуточное значение, без фиксации
     expect(wrapper.vm.form.contract_period).toBe(8)
     expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    // Пустой срок при двух датах возвращается к сроку по датам, дата не трогается.
     await enterPeriod(wrapper, '')
-    expect(wrapper.vm.form.contract_period).toBeNull()
+    expect(wrapper.vm.form.contract_period).toBe(88)
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    await enterPeriod(wrapper, '0')
+    expect(wrapper.vm.form.contract_period).toBe(88)
     expect(wrapper.vm.form.date_to).toBe('2025-08-13')
     wrapper.unmount()
   })
@@ -315,6 +317,61 @@ describe('ContractForm — защита введённых данных', () => 
     wrapper.unmount()
   })
 
+  it('набор года с клавиатуры не создаёт дату окончания и не стирает срок', async () => {
+    // Chrome отдаёт промежуточные «0002-01-01», «0020-01-01» при наборе года.
+    const wrapper = mountForm()
+    await wrapper.vm.$nextTick()
+    await enterPeriod(wrapper, '12')
+
+    wrapper.vm.formattedDateFrom = '0002-01-01'
+    await wrapper.vm.$nextTick()
+    wrapper.vm.formattedDateFrom = '0020-01-01'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.date_to).toBeNull()
+    expect(wrapper.vm.form.contract_period).toBe(12)
+
+    wrapper.vm.formattedDateFrom = '2026-01-01'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.date_to).toBe('2027-01-01')
+    expect(wrapper.vm.form.contract_period).toBe(12)
+    wrapper.unmount()
+  })
+
+  it('дата с неправдоподобным годом не сохраняется', async () => {
+    const wrapper = mountForm()
+    wrapper.vm.form.number = 'Д-2026/005'
+    wrapper.vm.form.organization_id = 7
+    wrapper.vm.formattedDateFrom = '0019-08-07'
+    await wrapper.vm.$nextTick()
+
+    wrapper.vm.save()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('save')).toBeUndefined()
+    expect(document.body.textContent).toContain('Проверьте год даты')
+    wrapper.unmount()
+  })
+
+  it('очищенная дата начала обнуляет срок, а срок из импорта сверяется с датами', async () => {
+    const wrapper = mountForm({
+      contract: {
+        id: 486,
+        number: '24/18Г',
+        organization_id: 7,
+        date_from: '2018-03-23T00:00:00',
+        date_to: '2025-08-13T00:00:00',
+        contract_period: 90, // в Excel было не то, что по датам
+      },
+    })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.contract_period).toBe(88)
+
+    wrapper.vm.formattedDateFrom = ''
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.contract_period).toBeNull()
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    wrapper.unmount()
+  })
+
   it('дробный и отрицательный срок не уходят на сервер как есть', async () => {
     const wrapper = mountForm()
     wrapper.vm.form.number = 'Д-2026/004'
@@ -322,7 +379,7 @@ describe('ContractForm — защита введённых данных', () => 
     await wrapper.vm.$nextTick()
 
     await enterPeriod(wrapper, '1.5')
-    expect(wrapper.vm.form.contract_period).toBe(1)
+    expect(wrapper.vm.form.contract_period).toBe(2)
     await enterPeriod(wrapper, '-3')
     expect(wrapper.vm.form.contract_period).toBeNull()
 

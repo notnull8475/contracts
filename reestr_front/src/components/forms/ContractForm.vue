@@ -31,6 +31,8 @@
               v-model="formattedDateFrom"
               label="Дата начала договора"
               type="date"
+              :error="!!errors.date_from"
+              :error-messages="errors.date_from"
               variant="outlined"
               density="comfortable"
               @keydown.enter="save"
@@ -42,6 +44,8 @@
               v-model="formattedDateTo"
               label="Дата окончания договора"
               type="date"
+              :error="!!errors.date_to"
+              :error-messages="errors.date_to"
               variant="outlined"
               density="comfortable"
               @keydown.enter="save"
@@ -59,8 +63,8 @@
               density="comfortable"
               hint="Считается по датам; можно задать вручную — дата окончания пересчитается"
               persistent-hint
-              @change="onPeriodInput(form.contract_period)"
-              @keydown.enter="(onPeriodInput(form.contract_period), save())"
+              @change="onPeriodInput"
+              @keydown.enter="commitPeriodAndSave"
             />
           </v-col>
 
@@ -558,6 +562,7 @@
 <script setup>
 import { computed, reactive, ref, toRefs, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts'
+import { blankToNull, isPlausibleDate, normalizePeriod } from '@/utils/form.js'
 import { OrganizationUtil } from '@/store/organizations'
 import { SupplementaryAgreementUtil } from '@/store/supplementaryAgreements'
 import { useToastStore } from '@/store/toast'
@@ -635,7 +640,7 @@ const selectedSupplementary = ref(null)
 const isCustomPrice = ref(false)
 const historyItems = ref([])
 const historyLoading = ref(false)
-const errors = reactive({ number: '', organization_id: '' })
+const errors = reactive({ number: '', organization_id: '', date_from: '', date_to: '' })
 const duplicateNumberHint = ref('')
 /** Снимок формы на момент открытия — чтобы отличить заполненную форму от нетронутой. */
 const pristineSnapshot = ref('')
@@ -752,32 +757,24 @@ function toApiDateTime(ymdOrIso) {
 const selectedUploadFile = computed(() => resolveSelectedFile(newFile.value))
 const selectedUploadUpdFile = computed(() => resolveSelectedFile(newUpdFile.value))
 
-/** Очищенное поле type="number" даёт '' — бэкенд ждёт число или null. */
-function blankToNull(value) {
-  return value === '' || value == null ? null : value
-}
-
-/** Срок в месяцах: целое неотрицательное число или null (бэкенд ждёт i32 >= 0). */
-function normalizePeriod(value) {
-  const raw = blankToNull(value)
-  if (raw === null) return null
-  const n = Math.trunc(Number(raw))
-  return Number.isFinite(n) && n >= 0 ? n : null
-}
-
 // Срок и даты пересчитываются только от ввода пользователя, а не от изменения
 // состояния: watcher'ы на form.* срабатывали и на заполнение формы из БД, и друг
 // на друга (ввод даты окончания → срок → дата окончания заменялась на
 // «начало + N месяцев»), и «Сохранить» молча портил дату.
+//
+// Инвариант: если есть обе даты, срок равен разнице между ними в месяцах;
+// срок сам по себе хранится только пока даты окончания нет.
 const formattedDateFrom = computed({
   get() {
     return dateValueForPicker(form.date_from)
   },
   set(value) {
     form.date_from = value || null
+    // Набор года с клавиатуры даёт «0002-…», «0020-…» — по ним не считаем.
+    if (form.date_from && !isPlausibleDate(form.date_from)) return
     // Срок ввели раньше даты начала — теперь из него можно получить дату окончания.
     if (form.date_from && !form.date_to && normalizePeriod(form.contract_period) > 0) {
-      onPeriodInput(form.contract_period)
+      onPeriodInput()
       return
     }
     syncPeriodFromDates()
@@ -790,29 +787,30 @@ const formattedDateTo = computed({
   },
   set(value) {
     form.date_to = value || null
+    if (form.date_to && !isPlausibleDate(form.date_to)) return
     syncPeriodFromDates()
   },
 })
 
-/** Срок считается по датам, когда обе есть; без даты окончания срока нет. */
+/** Срок считается по датам; без любой из них срока нет. */
 function syncPeriodFromDates() {
-  if (!form.date_to) {
-    form.contract_period = null
-    return
-  }
-  if (!form.date_from) return
   form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
 }
 
 /**
  * Пользователь зафиксировал срок (change/Enter, не каждая клавиша — иначе
  * стирание «88» через «8» переписывало дату окончания промежуточным значением):
- * дата окончания = дата начала + срок в месяцах. Пустой срок дату не трогает.
+ * дата окончания = дата начала + срок в месяцах. Пустой или нулевой срок
+ * возвращается к значению по датам, дату окончания не трогает.
  */
-function onPeriodInput(value) {
-  const period = normalizePeriod(value)
+function onPeriodInput() {
+  const period = normalizePeriod(form.contract_period)
+  if (!period) {
+    syncPeriodFromDates()
+    return
+  }
   if (period !== form.contract_period) form.contract_period = period
-  if (!form.date_from || !period) return
+  if (!isPlausibleDate(form.date_from)) return
   const start = parseCalendarDateLocal(form.date_from)
   if (!start) return
   const origDay = start.getDate()
@@ -821,6 +819,12 @@ function onPeriodInput(value) {
     start.setDate(0)
   }
   form.date_to = formatYmdLocal(start)
+}
+
+/** Enter в поле срока: сначала применить срок, потом сохранить. */
+function commitPeriodAndSave() {
+  onPeriodInput()
+  save()
 }
 
 watch(
@@ -840,6 +844,12 @@ watch(
     // того же срока записывал бы ту же дату в другом виде, делая форму «изменённой».
     form.date_from = dateValueForPicker(form.date_from) || null
     form.date_to = dateValueForPicker(form.date_to) || null
+    // Импорт из Excel мог дать срок, не совпадающий с датами; показываем и
+    // сохраняем срок по датам — так он определён в форме («Считается по датам»).
+    if (form.date_from && form.date_to) {
+      form.contract_period =
+        calculateContractPeriod(form.date_from, form.date_to) ?? form.contract_period
+    }
 
     newFile.value = null
     pendingFiles.value = []
@@ -851,6 +861,8 @@ watch(
     historyItems.value = []
     errors.number = ''
     errors.organization_id = ''
+    errors.date_from = ''
+    errors.date_to = ''
     duplicateNumberHint.value = ''
     pristineSnapshot.value = JSON.stringify(form)
 
@@ -1166,7 +1178,10 @@ function formatFileSize(bytes) {
 function validate() {
   errors.number = form.number?.trim() ? '' : 'Укажите номер договора'
   errors.organization_id = form.organization_id ? '' : 'Выберите организацию'
-  return !errors.number && !errors.organization_id
+  const yearError = (d) => (d && !isPlausibleDate(d) ? 'Проверьте год даты' : '')
+  errors.date_from = yearError(form.date_from)
+  errors.date_to = yearError(form.date_to)
+  return !errors.number && !errors.organization_id && !errors.date_from && !errors.date_to
 }
 
 /**
@@ -1221,8 +1236,8 @@ function save() {
     number: form.number.trim(),
     date_from: toApiDateTime(form.date_from),
     date_to: toApiDateTime(form.date_to),
-    // Сеттеры дат держат срок в согласии с датами, поэтому уходит то, что видит
-    // пользователь, включая срок, введённый вручную без даты начала.
+    // Сеттеры дат, обработчик срока и заполнение формы держат срок в согласии
+    // с датами, поэтому уходит то, что видит пользователь.
     contract_period: normalizePeriod(form.contract_period),
     price: blankToNull(form.price),
   }

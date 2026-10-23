@@ -150,6 +150,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ContractUtil } from '@/store/contracts.js'
 import { useToastStore } from '@/store/toast.js'
+import { blankToNull } from '@/utils/form.js'
 
 const props = defineProps(['modelValue', 'agreement', 'files'])
 const emit = defineEmits(['update:modelValue', 'save', 'file-deleted'])
@@ -206,7 +207,7 @@ function save() {
   emit('save', {
     ...form,
     // Очищенное поле type="number" даёт '' — бэкенд ждёт число или null.
-    price: form.price === '' || form.price == null ? null : form.price,
+    price: blankToNull(form.price),
     pendingFiles: allPending,
   })
 }
