@@ -52,14 +52,15 @@
             <v-text-field
               v-model.number="form.contract_period"
               label="Срок действия (мес.)"
-              @update:model-value="onPeriodInput"
               type="number"
               min="0"
+              step="1"
               variant="outlined"
               density="comfortable"
               hint="Считается по датам; можно задать вручную — дата окончания пересчитается"
               persistent-hint
-              @keydown.enter="save"
+              @change="onPeriodInput(form.contract_period)"
+              @keydown.enter="(onPeriodInput(form.contract_period), save())"
             />
           </v-col>
 
@@ -751,6 +752,19 @@ function toApiDateTime(ymdOrIso) {
 const selectedUploadFile = computed(() => resolveSelectedFile(newFile.value))
 const selectedUploadUpdFile = computed(() => resolveSelectedFile(newUpdFile.value))
 
+/** Очищенное поле type="number" даёт '' — бэкенд ждёт число или null. */
+function blankToNull(value) {
+  return value === '' || value == null ? null : value
+}
+
+/** Срок в месяцах: целое неотрицательное число или null (бэкенд ждёт i32 >= 0). */
+function normalizePeriod(value) {
+  const raw = blankToNull(value)
+  if (raw === null) return null
+  const n = Math.trunc(Number(raw))
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
 // Срок и даты пересчитываются только от ввода пользователя, а не от изменения
 // состояния: watcher'ы на form.* срабатывали и на заполнение формы из БД, и друг
 // на друга (ввод даты окончания → срок → дата окончания заменялась на
@@ -761,7 +775,12 @@ const formattedDateFrom = computed({
   },
   set(value) {
     form.date_from = value || null
-    form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
+    // Срок ввели раньше даты начала — теперь из него можно получить дату окончания.
+    if (form.date_from && !form.date_to && normalizePeriod(form.contract_period) > 0) {
+      onPeriodInput(form.contract_period)
+      return
+    }
+    syncPeriodFromDates()
   },
 })
 
@@ -771,14 +790,29 @@ const formattedDateTo = computed({
   },
   set(value) {
     form.date_to = value || null
-    form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
+    syncPeriodFromDates()
   },
 })
 
-/** Пользователь ввёл срок: дата окончания = дата начала + срок (в месяцах). */
+/** Срок считается по датам, когда обе есть; без даты окончания срока нет. */
+function syncPeriodFromDates() {
+  if (!form.date_to) {
+    form.contract_period = null
+    return
+  }
+  if (!form.date_from) return
+  form.contract_period = calculateContractPeriod(form.date_from, form.date_to)
+}
+
+/**
+ * Пользователь зафиксировал срок (change/Enter, не каждая клавиша — иначе
+ * стирание «88» через «8» переписывало дату окончания промежуточным значением):
+ * дата окончания = дата начала + срок в месяцах. Пустой срок дату не трогает.
+ */
 function onPeriodInput(value) {
-  const period = Number(value)
-  if (!form.date_from || !period || period <= 0) return
+  const period = normalizePeriod(value)
+  if (period !== form.contract_period) form.contract_period = period
+  if (!form.date_from || !period) return
   const start = parseCalendarDateLocal(form.date_from)
   if (!start) return
   const origDay = start.getDate()
@@ -802,6 +836,10 @@ watch(
         if (key in form) form[key] = value
       }
     }
+    // Даты держим как «YYYY-MM-DD»: API отдаёт «…T00:00:00», и повторный ввод
+    // того же срока записывал бы ту же дату в другом виде, делая форму «изменённой».
+    form.date_from = dateValueForPicker(form.date_from) || null
+    form.date_to = dateValueForPicker(form.date_to) || null
 
     newFile.value = null
     pendingFiles.value = []
@@ -1183,14 +1221,10 @@ function save() {
     number: form.number.trim(),
     date_from: toApiDateTime(form.date_from),
     date_to: toApiDateTime(form.date_to),
-    // По датам, а если их нет — введённый вручную срок (подсказка поля это обещает).
-    contract_period:
-      calculateContractPeriod(form.date_from, form.date_to) ??
-      (form.contract_period === '' || form.contract_period == null
-        ? null
-        : Number(form.contract_period)),
-    // Очищенное поле type="number" даёт '' — бэкенд ждёт число или null.
-    price: form.price === '' || form.price == null ? null : form.price,
+    // Сеттеры дат держат срок в согласии с датами, поэтому уходит то, что видит
+    // пользователь, включая срок, введённый вручную без даты начала.
+    contract_period: normalizePeriod(form.contract_period),
+    price: blankToNull(form.price),
   }
 
   // Диалог закрывает родитель после успешного ответа сервера: при ошибке

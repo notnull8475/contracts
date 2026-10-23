@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, mount } from '@vue/test-utils'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
@@ -44,6 +44,33 @@ const ORGANIZATIONS = [
     inn: 7701234567,
   },
 ]
+
+/**
+ * Поле «Срок действия (мес.)» — как его видит пользователь. Диалог рендерится
+ * в body, а не внутри wrapper; берём последнее совпадение — текущий диалог.
+ */
+function periodInput() {
+  const field = [...document.querySelectorAll('.v-field')]
+    .filter((f) => f.textContent.includes('Срок действия'))
+    .at(-1)
+  return new DOMWrapper(field.querySelector('input'))
+}
+
+/** Одна клавиша в поле срока: только input, без фиксации значения. */
+async function typePeriod(wrapper, value) {
+  const input = periodInput()
+  input.element.value = value
+  await input.trigger('input')
+  await wrapper.vm.$nextTick()
+}
+
+/** Ввод срока с фиксацией значения (change), как при уходе из поля. */
+async function enterPeriod(wrapper, value) {
+  const input = periodInput()
+  await input.setValue(value)
+  await input.trigger('change')
+  await wrapper.vm.$nextTick()
+}
 
 function mountForm(props = {}) {
   setActivePinia(createPinia())
@@ -186,7 +213,7 @@ describe('ContractForm — защита введённых данных', () => 
     await wrapper.vm.$nextTick()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.vm.form.date_to).toBe('2025-08-13T00:00:00')
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13')
     expect(wrapper.vm.form.contract_period).toBe(88)
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
@@ -195,9 +222,53 @@ describe('ContractForm — защита введённых данных', () => 
     confirmSpy.mockRestore()
 
     // А ввод срока пользователем по-прежнему пересчитывает дату окончания.
-    wrapper.vm.onPeriodInput(12)
-    await wrapper.vm.$nextTick()
+    await enterPeriod(wrapper, '12')
     expect(wrapper.vm.form.date_to).toBe('2019-03-23')
+    wrapper.unmount()
+  })
+
+  it('стирание срока по одной цифре не переписывает дату окончания', async () => {
+    // Регресс: пересчёт на каждую клавишу — «88» → «8» ставил 23.11.2018,
+    // а пустое поле уже ничего не возвращало; «Сохранить» уносил чужую дату.
+    const wrapper = mountForm({
+      contract: {
+        id: 486,
+        number: '24/18Г',
+        organization_id: 7,
+        date_from: '2018-03-23T00:00:00',
+        date_to: '2025-08-13T00:00:00',
+        contract_period: 88,
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    await typePeriod(wrapper, '8') // промежуточное значение, без фиксации
+    expect(wrapper.vm.form.contract_period).toBe(8)
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    await enterPeriod(wrapper, '')
+    expect(wrapper.vm.form.contract_period).toBeNull()
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13')
+    wrapper.unmount()
+  })
+
+  it('повторный ввод того же срока не делает форму изменённой', async () => {
+    const wrapper = mountForm({
+      contract: {
+        id: 1859,
+        number: 'б/н 2026-04-04',
+        organization_id: 7,
+        date_from: '2026-04-28T00:00:00',
+        date_to: '2028-03-28T00:00:00',
+        contract_period: 23,
+      },
+    })
+    await wrapper.vm.$nextTick()
+    await enterPeriod(wrapper, '23')
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    wrapper.vm.requestClose()
+    expect(confirmSpy).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
     wrapper.unmount()
   })
 
@@ -224,18 +295,39 @@ describe('ContractForm — защита введённых данных', () => 
     wrapper.unmount()
   })
 
-  it('срок, введённый без даты начала, уходит на сервер', async () => {
+  it('срок, введённый без даты начала, уходит на сервер и даёт дату после выбора начала', async () => {
     const wrapper = mountForm()
     wrapper.vm.form.number = 'Д-2026/003'
     wrapper.vm.form.organization_id = 7
-    wrapper.vm.form.contract_period = 12
-    wrapper.vm.onPeriodInput(12)
     await wrapper.vm.$nextTick()
+    await enterPeriod(wrapper, '12')
 
     wrapper.vm.save()
     const payload = wrapper.emitted('save')[0][0].contract
     expect(payload.contract_period).toBe(12)
     expect(payload.date_to).toBeNull()
+
+    // Дата начала появилась позже срока — срок не стирается, а даёт дату окончания.
+    wrapper.vm.formattedDateFrom = '2026-01-01'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.contract_period).toBe(12)
+    expect(wrapper.vm.form.date_to).toBe('2027-01-01')
+    wrapper.unmount()
+  })
+
+  it('дробный и отрицательный срок не уходят на сервер как есть', async () => {
+    const wrapper = mountForm()
+    wrapper.vm.form.number = 'Д-2026/004'
+    wrapper.vm.form.organization_id = 7
+    await wrapper.vm.$nextTick()
+
+    await enterPeriod(wrapper, '1.5')
+    expect(wrapper.vm.form.contract_period).toBe(1)
+    await enterPeriod(wrapper, '-3')
+    expect(wrapper.vm.form.contract_period).toBeNull()
+
+    wrapper.vm.save()
+    expect(wrapper.emitted('save')[0][0].contract.contract_period).toBeNull()
     wrapper.unmount()
   })
 
