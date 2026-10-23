@@ -170,6 +170,37 @@ describe('ContractForm — защита введённых данных', () => 
     wrapper.unmount()
   })
 
+  it('срок из БД не пересчитывает дату окончания при открытии договора', async () => {
+    // Регресс: watcher по сроку срабатывал на заполнение формы и заменял
+    // фактическую дату окончания (13.08.2025) на date_from + 88 мес. (23.07.2025).
+    const wrapper = mountForm({
+      contract: {
+        id: 486,
+        number: '24/18Г',
+        organization_id: 7,
+        date_from: '2018-03-23T00:00:00',
+        date_to: '2025-08-13T00:00:00',
+        contract_period: 88,
+      },
+    })
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.form.date_to).toBe('2025-08-13T00:00:00')
+    expect(wrapper.vm.form.contract_period).toBe(88)
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    wrapper.vm.requestClose()
+    expect(confirmSpy).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
+
+    // А правка срока пользователем по-прежнему пересчитывает дату окончания.
+    wrapper.vm.form.contract_period = 12
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.form.date_to).toBe('2019-03-23')
+    wrapper.unmount()
+  })
+
   it('заполненная форма спрашивает подтверждение и не закрывается при отказе', async () => {
     const wrapper = mountForm()
     await wrapper.vm.$nextTick()

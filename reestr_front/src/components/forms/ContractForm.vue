@@ -632,6 +632,10 @@ const supplementaryFormDialog = ref(false)
 const selectedSupplementary = ref(null)
 const isCustomPrice = ref(false)
 const periodChanging = ref(false)
+// Пока форма заполняется из объекта договора, watcher'ы по датам и сроку
+// молчат: иначе срок из БД пересчитывал дату окончания (23.03.2018 + 88 мес.
+// вместо фактической 13.08.2025), и «Сохранить» молча портил дату.
+const populating = ref(false)
 const historyItems = ref([])
 const historyLoading = ref(false)
 const errors = reactive({ number: '', organization_id: '' })
@@ -772,6 +776,7 @@ const formattedDateTo = computed({
 watch(
   () => [form.date_from, form.date_to],
   () => {
+    if (populating.value) return
     if (periodChanging.value) {
       periodChanging.value = false
       return
@@ -783,6 +788,7 @@ watch(
 watch(
   () => form.contract_period,
   (period) => {
+    if (populating.value) return
     if (!form.date_from || !period || period <= 0) return
     const start = parseCalendarDateLocal(form.date_from)
     if (!start) return
@@ -807,6 +813,7 @@ watch(
 
     // Сначала полный сброс на дефолты: приходящий объект может не содержать
     // часть полей, и без сброса в форме остались бы значения прошлого договора.
+    populating.value = true
     Object.assign(form, emptyForm())
     if (newVal) {
       for (const [key, value] of Object.entries(newVal)) {
@@ -825,10 +832,11 @@ watch(
     errors.number = ''
     errors.organization_id = ''
     duplicateNumberHint.value = ''
-    // Снимок «чистого» состояния — после того, как отработают watcher'ы по датам
-    // и сроку: они могут нормализовать поля, и это не правка пользователя.
     pristineSnapshot.value = JSON.stringify(form)
+    // Watcher'ы по датам и сроку срабатывают до nextTick и при populating
+    // выходят сразу; дальше форма реагирует только на правки пользователя.
     nextTick(() => {
+      populating.value = false
       pristineSnapshot.value = JSON.stringify(form)
     })
 
